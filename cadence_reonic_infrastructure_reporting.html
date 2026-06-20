@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>Cadence | Reonic Infrastructure Reporting</title>
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <!-- Material Symbols -->
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/history@5/umd/history.development.js"></script>
+    <script src="https://unpkg.com/react-router@6.3.0/umd/react-router.development.js"></script>
+    <script src="https://unpkg.com/react-router-dom@6.3.0/umd/react-router-dom.development.js"></script>
+    <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-fixed-variant": "#693a34",
+                        "tertiary-container": "#794741",
+                        "error-container": "#ffdad6",
+                        "surface-bright": "#f9faf7",
+                        "on-primary-container": "#a2d4c1",
+                        "surface-container-high": "#e7e8e6",
+                        "secondary-container": "#a7efce",
+                        "on-primary-fixed": "#002118",
+                        "inverse-surface": "#2e312f",
+                        "secondary-fixed-dim": "#8ed5b5",
+                        "surface-dim": "#d9dad8",
+                        "on-background": "#1a1c1b",
+                        "primary-fixed-dim": "#9fd1be",
+                        "secondary": "#226a50",
+                        "on-tertiary-container": "#fcb9b0",
+                        "on-primary": "#ffffff",
+                        "surface-tint": "#386758",
+                        "on-secondary-fixed-variant": "#00513a",
+                        "error": "#ba1a1a",
+                        "tertiary-fixed-dim": "#f9b6ae",
+                        "on-tertiary": "#ffffff",
+                        "primary-container": "#2e5d4e",
+                        "inverse-primary": "#9fd1be",
+                        "primary": "#144537",
+                        "on-surface": "#1a1c1b",
+                        "outline-variant": "#c0c8c3",
+                        "outline": "#717975",
+                        "on-error-container": "#93000a",
+                        "on-secondary-container": "#276e54",
+                        "secondary-fixed": "#aaf1d1",
+                        "surface": "#f9faf7",
+                        "surface-variant": "#e2e3e0",
+                        "surface-container": "#edeeeb",
+                        "surface-container-lowest": "#ffffff",
+                        "tertiary-fixed": "#ffdad5",
+                        "on-tertiary-fixed": "#34100c",
+                        "surface-container-highest": "#e2e3e0",
+                        "surface-container-low": "#f3f4f1",
+                        "on-secondary-fixed": "#002115",
+                        "primary-fixed": "#bbedd9",
+                        "on-secondary": "#ffffff",
+                        "tertiary": "#5e312b",
+                        "on-surface-variant": "#404945",
+                        "on-error": "#ffffff",
+                        "background": "#f9faf7",
+                        "inverse-on-surface": "#f0f1ee",
+                        "on-primary-fixed-variant": "#1f4f40"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "body-main": ["Inter"],
+                        "display-lg": ["Instrument Serif"],
+                        "headline-section": ["Inter"],
+                        "label-caps": ["JetBrains Mono"],
+                        "data-mono": ["JetBrains Mono"],
+                        "wordmark": ["Instrument Serif"],
+                        "body-strong": ["Inter"],
+                        "display-md": ["Instrument Serif"]
+                    }
+                },
+            },
+        }
+    </script>
+
+    <style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            font-size: 20px;
+        }
+        body {
+            background-color: #FAFAF7;
+        }
+        .hairline {
+            border: 1px solid #E8E8E3;
+        }
+        .archetype-gradient {
+            background: linear-gradient(90deg, #2E5D4E 0%, #2E5D4E 65%, #794741 65%, #794741 100%);
+        }
+        .a4-container {
+            width: 210mm;
+            min-height: 297mm;
+            margin: 0 auto;
+        }
+        @media print {
+            .no-print { display: none; }
+            .a4-container { margin: 0; border: none; box-shadow: none; }
+        }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        input[type=range] { -webkit-appearance: none; background: transparent; }
+        input[type=range]:focus { outline: none; }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 1px; cursor: pointer; background: #E8E8E3; }
+        input[type=range]::-webkit-slider-thumb { height: 12px; width: 12px; border-radius: 2px; background: #2E5D4E; cursor: pointer; -webkit-appearance: none; margin-top: -5.5px; }
+
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-4px); }
+            100% { transform: translateY(0px); }
+        }
+        .animate-float { animation: float 4s ease-in-out infinite; }
+        .backdrop-blur-custom { backdrop-filter: blur(12px); background-color: rgba(249, 250, 247, 0.85); }
+    </style>
+</head>
+<body class="font-body-main text-on-surface">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+        const { createRoot } = ReactDOM;
+        const { MemoryRouter, Routes, Route, Link, useNavigate, useLocation } = ReactRouterDOM;
+
+        // --- Shared Components ---
+
+        const SideNav = ({ active }) => {
+            const navigate = useNavigate();
+            return (
+                <nav className="h-screen w-64 fixed left-0 top-0 bg-surface-container-lowest border-r border-outline-variant flex flex-col py-6 z-50 no-print">
+                    <div className="px-6 mb-10">
+                        <div className="flex items-baseline gap-1">
+                            <span className="font-wordmark italic text-primary text-[22px]">Cadence</span>
+                            <span className="font-data-mono text-[9px] text-outline uppercase tracking-widest">BY REONIC</span>
+                        </div>
+                        <p className="font-label-caps text-[10px] text-outline mt-1 uppercase">Infrastructure Report</p>
+                    </div>
+                    <div className="flex-1 space-y-px">
+                        <Link to="/" className={`flex items-center gap-4 px-6 py-3 transition-colors group ${active === 'pipeline' ? 'border-l-2 border-primary text-primary font-body-strong bg-primary-container/5' : 'text-on-surface-variant hover:text-primary'}`}>
+                            <span className="material-symbols-outlined">lan</span>
+                            <span className="font-body-main">Pipeline</span>
+                        </Link>
+                        <Link to="/sequences" className={`flex items-center gap-4 px-6 py-3 transition-colors group ${active === 'sequences' ? 'border-l-2 border-primary text-primary font-body-strong bg-primary-container/5' : 'text-on-surface-variant hover:text-primary'}`}>
+                            <span className="material-symbols-outlined">account_tree</span>
+                            <span className="font-body-main">Sequences</span>
+                        </Link>
+                        <Link to="/experiments" className={`flex items-center gap-4 px-6 py-3 transition-colors group ${active === 'experiments' ? 'border-l-2 border-primary text-primary font-body-strong bg-primary-container/5' : 'text-on-surface-variant hover:text-primary'}`}>
+                            <span className="material-symbols-outlined">experiment</span>
+                            <span className="font-body-main">Experiments</span>
+                        </Link>
+                        <Link to="/audit" className={`flex items-center gap-4 px-6 py-3 transition-colors group ${active === 'audit' ? 'border-l-2 border-primary text-primary font-body-strong bg-primary-container/5' : 'text-on-surface-variant hover:text-primary'}`}>
+                            <span className="material-symbols-outlined">history_edu</span>
+                            <span className="font-body-main">Audit</span>
+                        </Link>
+                    </div>
+                    <button onClick={() => navigate('/intake')} className="mx-6 mb-8 py-3 px-6 bg-primary-container text-on-primary border border-primary-container font-body-strong flex items-center justify-center gap-2 hover:opacity-90 transition-all active:scale-95">
+                        <span>New Project</span>
+                    </button>
+                    <div className="px-6 border-t border-outline-variant pt-6 flex items-center gap-2">
+                        <span className="material-symbols-outlined text-outline text-[14px]">copyright</span>
+                        <span className="font-label-caps text-[10px] text-outline uppercase tracking-widest">Cadence by Reonic</span>
+                    </div>
+                </nav>
+            );
+        };
+
+        const TopBar = ({ title, showAdjust = true, onAdjustClick }) => {
+            const navigate = useNavigate();
+            return (
+                <header className="sticky top-0 w-full z-40 bg-surface border-b border-outline-variant flex justify-between items-center px-6 py-4 ml-64 max-w-[calc(100%-16rem)] no-print">
+                    <div className="flex items-center gap-4">
+                        <h1 className="font-display-md text-2xl italic text-primary">{title}</h1>
+                    </div>
+                    <div className="flex items-center gap-6">
+                        {showAdjust && (
+                            <button onClick={onAdjustClick || (() => navigate('/adjust'))} className="font-body-strong text-on-surface-variant hover:opacity-80 transition-opacity flex items-center gap-1 active:scale-95 transition-all">
+                                <span className="material-symbols-outlined">replay</span>
+                                <span>Adjust Sequence</span>
+                            </button>
+                        )}
+                        <button onClick={() => navigate('/brief')} className="bg-primary text-on-primary font-body-strong px-6 py-2 transition-transform active:scale-95 transition-all rounded-sm">
+                            Export brief
+                        </button>
+                        <div className="w-8 h-8 bg-surface-container-highest rounded-full flex items-center justify-center border border-outline-variant cursor-pointer hover:opacity-80">
+                            <span className="material-symbols-outlined text-outline">person</span>
+                        </div>
+                    </div>
+                </header>
+            );
+        };
+
+        const GlobalFooter = () => (
+            <footer className="w-full py-10 text-center border-t border-outline-variant mt-10 ml-64 max-w-[calc(100%-16rem)] no-print">
+                <div className="max-w-7xl mx-auto px-10 flex justify-end">
+                    <p className="font-data-mono text-[10px] text-outline uppercase tracking-widest">CADENCE BY REONIC · EU-RESIDENT · AI ACT ART. 50</p>
+                </div>
+            </footer>
+        );
+
+        // --- Screens ---
+
+        const PipelinePage = () => {
+            const navigate = useNavigate();
+            const customers = [
+                { id: 1, name: 'Maria Müller', value: '€18,400.00', date: '22.10.2023', stage: 'Contracting', risk: 12, readiness: 92, active: true },
+                { id: 2, name: 'Stefan Bauer', value: '€32,500.00', date: '18.10.2023', stage: 'Validation', risk: 44, readiness: 71 },
+                { id: 3, name: 'Jonas Weber', value: '€15,200.00', date: '21.10.2023', stage: 'Proposal', risk: 12, readiness: 92 },
+                { id: 4, name: 'Anna Hoffmann', value: '€28,900.00', date: '12.10.2023', stage: 'Discovery', risk: 12, readiness: 92 },
+                { id: 5, name: 'Lukas Schmidt', value: '€42,100.00', date: '15.10.2023', stage: 'Discovery', risk: 12, readiness: 92 },
+            ];
+
+            return (
+                <div className="flex bg-background min-h-screen">
+                    <SideNav active="pipeline" />
+                    <main className="ml-64 flex-1">
+                        <header className="sticky top-0 w-full z-40 bg-surface border-b border-outline-variant flex justify-between items-center px-6 py-4">
+                            <div className="flex items-center gap-4">
+                                <span className="font-display-md text-2xl italic text-primary">Pipeline</span>
+                            </div>
+                            <div className="flex items-center gap-6">
+                                <Link to="/sequences" className="text-primary font-body-strong cursor-pointer hover:opacity-80">Sequence Planner</Link>
+                                <button onClick={() => navigate('/adjust')} className="px-4 py-1.5 border border-outline-variant text-primary font-body-strong rounded-sm hover:bg-surface-container-low active:scale-95">Adjust Sequence</button>
+                                <button onClick={() => navigate('/brief')} className="px-4 py-1.5 bg-primary text-white font-body-strong rounded-sm hover:opacity-90 active:scale-95">Export brief</button>
+                            </div>
+                        </header>
+
+                        <div className="p-6 max-w-[1400px] mx-auto">
+                            <div className="grid grid-cols-4 gap-px bg-outline-variant border border-outline-variant rounded-xl overflow-hidden mb-10">
+                                <div className="bg-white p-6">
+                                    <p className="font-label-caps text-[10px] text-outline uppercase mb-2">Total Pipeline Value</p>
+                                    <p className="font-display-md text-3xl text-primary">€12.4M</p>
+                                    <p className="font-data-mono text-[11px] text-secondary mt-1">+8.2% vs last month</p>
+                                </div>
+                                <div className="bg-white p-6">
+                                    <p className="font-label-caps text-[10px] text-outline uppercase mb-2">Active Sequences</p>
+                                    <p className="font-display-md text-3xl text-primary">42</p>
+                                    <p className="font-data-mono text-[11px] text-outline mt-1">12 pending review</p>
+                                </div>
+                                <div className="bg-white p-6">
+                                    <p className="font-label-caps text-[10px] text-outline uppercase mb-2">Avg. Close Probability</p>
+                                    <p className="font-display-md text-3xl text-primary">64%</p>
+                                    <p className="font-data-mono text-[11px] text-error mt-1">-2% ghost risk alert</p>
+                                </div>
+                                <div className="bg-white p-6">
+                                    <p className="font-label-caps text-[10px] text-outline uppercase mb-2">Audit Status</p>
+                                    <p className="font-display-md text-3xl text-primary">Compliant</p>
+                                    <p className="font-data-mono text-[11px] text-secondary mt-1">Verified 2h ago</p>
+                                </div>
+                            </div>
+
+                            <div className="bg-white rounded-xl border border-outline-variant overflow-hidden">
+                                <table className="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr className="bg-surface-container-low border-b border-outline-variant">
+                                            <th className="px-6 py-4 font-label-caps text-[10px] text-on-surface-variant uppercase">CUSTOMER</th>
+                                            <th className="px-6 py-4 font-label-caps text-[10px] text-on-surface-variant uppercase">QUOTE VALUE</th>
+                                            <th className="px-6 py-4 font-label-caps text-[10px] text-on-surface-variant uppercase">ARCHETYPE MIX</th>
+                                            <th className="px-6 py-4 font-label-caps text-[10px] text-on-surface-variant uppercase">STAGE</th>
+                                            <th className="px-6 py-4 font-label-caps text-[10px] text-on-surface-variant uppercase">LAST TOUCH</th>
+                                            <th className="px-6 py-4 font-label-caps text-[10px] text-on-surface-variant uppercase">GHOST RISK</th>
+                                            <th className="px-6 py-4 font-label-caps text-[10px] text-on-surface-variant uppercase">CLOSE READINESS</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-outline-variant">
+                                        {customers.map(c => (
+                                            <tr key={c.id} onClick={() => navigate('/sequences')} className={`hover:bg-surface-container-lowest transition-colors cursor-pointer ${c.active ? 'border-l-4 border-primary' : ''}`}>
+                                                <td className="px-6 py-6"><span className="font-display-md text-[15px] italic text-primary">{c.name}</span></td>
+                                                <td className="px-6 py-6 font-data-mono text-xs">{c.value}</td>
+                                                <td className="px-6 py-6 w-48">
+                                                    <div className="flex gap-0.5 w-full">
+                                                        <div className="h-1 bg-[#8ca6c0]" style={{width: '60%'}}></div>
+                                                        <div className="h-1 bg-[#a6b599]" style={{width: '30%'}}></div>
+                                                        <div className="h-1 bg-[#c0a1a1]" style={{width: '10%'}}></div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-6">
+                                                    <span className={`px-2 py-1 font-label-caps text-[10px] rounded uppercase ${c.stage === 'Contracting' ? 'bg-secondary-fixed text-on-secondary-fixed' : 'bg-surface-variant text-on-surface-variant'}`}>{c.stage}</span>
+                                                </td>
+                                                <td className="px-6 py-6 font-data-mono text-xs text-outline">{c.date}</td>
+                                                <td className="px-6 py-6">
+                                                    <div className={`px-3 py-1.5 rounded-lg border w-fit flex flex-col ${c.risk > 40 ? 'bg-error-container text-on-error-container border-error/20' : 'bg-surface-container-low border-outline-variant'}`}>
+                                                        <div className="flex items-baseline gap-2">
+                                                            <span className="font-body-strong text-2xl leading-none">{c.risk}</span>
+                                                            <span className="font-label-caps text-[9px] uppercase">{c.risk > 40 ? 'High' : 'Low'}</span>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-6">
+                                                    <div className={`px-3 py-1.5 rounded-lg w-fit flex flex-col ${c.readiness > 80 ? 'bg-primary-container text-white' : 'bg-surface-container-low border border-outline-variant'}`}>
+                                                        <div className="flex items-baseline gap-2">
+                                                            <span className="font-body-strong text-2xl leading-none">{c.readiness}</span>
+                                                            <span className="font-label-caps text-[9px] uppercase">{c.readiness > 80 ? 'High' : 'Mid'}</span>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <button onClick={() => navigate('/intake')} className="fixed bottom-10 right-10 bg-primary-container text-white px-6 py-4 flex items-center gap-3 rounded-xl shadow-lg transition-all hover:scale-105 active:scale-95 group">
+                            <span className="material-symbols-outlined group-hover:rotate-90 transition-transform">add</span>
+                            <span className="font-body-strong">New Customer</span>
+                        </button>
+                    </main>
+                </div>
+            );
+        };
+
+        const IntakePage = () => {
+            const navigate = useNavigate();
+            return (
+                <div className="flex bg-background min-h-screen">
+                    <SideNav active="pipeline" />
+                    <main className="ml-64 flex-1">
+                        <TopBar title="Customer Intake" showAdjust={false} />
+                        <div className="p-10 min-h-[calc(100vh-73px)]">
+                            <div className="grid grid-cols-12 gap-10 max-w-7xl mx-auto">
+                                <section className="col-span-12 lg:col-span-5 space-y-10">
+                                    <header className="space-y-2">
+                                        <h2 className="font-headline-section text-xl font-semibold">Customer Intake</h2>
+                                        <p className="font-body-main text-on-surface-variant">Profile identification and energy baseline modeling for solar asset financing.</p>
+                                    </header>
+                                    <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); navigate('/sequences'); }}>
+                                        <div className="font-data-mono text-[10px] uppercase text-outline">LOCATION</div>
+                                        <div className="px-4 py-3 border border-primary/10 flex items-center justify-between" style={{backgroundColor: 'rgba(46, 93, 78, 0.08)', color: '#2e5d4e'}}>
+                                            <div className="flex items-center gap-2">
+                                                <span className="material-symbols-outlined text-primary" style={{fontVariationSettings: "'FILL' 1"}}>location_on</span>
+                                                <span className="font-body-strong">Berlin · 1,050 kWh/m²/yr · 14% above DE average</span>
+                                            </div>
+                                            <span className="font-label-caps text-[10px] text-primary cursor-pointer">EDIT</span>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-6">
+                                            <div className="col-span-2 sm:col-span-1 space-y-2">
+                                                <label className="font-label-caps text-[10px] text-outline block uppercase">Full Name</label>
+                                                <input className="w-full bg-surface-container-lowest border border-outline-variant px-4 py-2 font-body-main focus:ring-1 focus:ring-primary focus:border-primary transition-all" type="text" defaultValue="Elena Volkov" />
+                                            </div>
+                                            <div className="col-span-2 sm:col-span-1 space-y-2">
+                                                <label className="font-label-caps text-[10px] text-outline block uppercase">Annual Usage (kWh)</label>
+                                                <input className="w-full bg-surface-container-lowest border border-outline-variant px-4 py-2 font-body-main focus:ring-1 focus:ring-primary focus:border-primary transition-all" type="text" defaultValue="4,850" />
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="font-label-caps text-[10px] text-outline block uppercase">Site Address</label>
+                                            <input className="w-full bg-surface-container-lowest border border-outline-variant px-4 py-2 font-body-main focus:ring-1 focus:ring-primary focus:border-primary transition-all" type="text" defaultValue="Torstraße 104, 10119 Berlin" />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="font-label-caps text-[10px] text-outline block uppercase">Roof Orientation</label>
+                                            <div className="grid grid-cols-3 gap-2">
+                                                <button className="border border-outline-variant py-2 font-body-main hover:bg-primary-container/10 transition-all active:scale-95" type="button">South</button>
+                                                <button className="border border-primary bg-primary/5 py-2 font-body-strong text-primary transition-all active:scale-95" type="button">E/W Split</button>
+                                                <button className="border border-outline-variant py-2 font-body-main hover:bg-primary-container/10 transition-all active:scale-95" type="button">Flat</button>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-4 pt-4">
+                                            <label className="flex items-start gap-4 cursor-pointer">
+                                                <input defaultChecked className="mt-1 w-5 h-5 border-outline-variant text-primary focus:ring-0 rounded-none bg-surface-container-lowest transition-all" type="checkbox" />
+                                                <span className="font-body-main text-on-surface-variant">I consent to high-res smart meter data collection. <span className="font-data-mono text-[10px] text-primary ml-2">consented 14:32</span></span>
+                                            </label>
+                                            <label className="flex items-start gap-4 cursor-pointer">
+                                                <input className="mt-1 w-5 h-5 border-outline-variant text-primary focus:ring-0 rounded-none bg-surface-container-lowest transition-all" type="checkbox" />
+                                                <span className="font-body-main text-on-surface-variant">Authorize soft credit check for financing program.</span>
+                                            </label>
+                                        </div>
+                                        <button className="w-full py-4 bg-primary-container text-on-primary font-body-strong hover:opacity-95 transition-all mt-8 shadow-sm active:scale-95" type="submit">
+                                            Generate Strategy
+                                        </button>
+                                    </form>
+                                </section>
+
+                                <section className="col-span-12 lg:col-span-7">
+                                    <div className="bg-surface-container-lowest border border-[#E8E8E3] p-10 flex flex-col h-full min-h-[600px] sticky top-10">
+                                        <div className="flex justify-between items-start mb-10">
+                                            <div>
+                                                <span className="font-label-caps text-[10px] text-outline uppercase">Live Preview · ID #8841</span>
+                                                <h3 className="font-display-md text-2xl italic text-primary mt-2">Executive Proposal</h3>
+                                            </div>
+                                            <div className="text-right">
+                                                <span className="font-label-caps text-[10px] text-outline uppercase block">Status</span>
+                                                <span className="font-body-strong text-primary">Drafting Strategy</span>
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-6 flex-1">
+                                            <div className="col-span-2 bg-surface-container-low/50 border border-outline-variant/30 p-6 relative overflow-hidden">
+                                                <p className="font-label-caps text-[10px] text-outline uppercase mb-4">Asset Allocation</p>
+                                                <div className="flex flex-col gap-2 relative z-10">
+                                                    <h4 className="tracking-tight"><span className="font-body-main text-on-surface-variant">Client:</span> <span className="font-display-md italic text-primary text-[24px]">Elena Volkov</span></h4>
+                                                    <div className="mt-4 flex items-baseline gap-2">
+                                                        <span className="font-body-main text-outline">Contract Value:</span>
+                                                        <span className="font-display-md italic text-primary">€32,400</span>
+                                                    </div>
+                                                </div>
+                                                <div className="absolute right-0 bottom-0 opacity-10 pointer-events-none">
+                                                    <span className="material-symbols-outlined text-[180px]">architecture</span>
+                                                </div>
+                                            </div>
+                                            <div className="col-span-1 border border-[#E8E8E3] p-4 flex flex-col justify-between hover:bg-surface-container-low transition-all cursor-pointer">
+                                                <span className="font-label-caps text-[10px] text-outline uppercase">Projected ROI</span>
+                                                <div className="mt-4">
+                                                    <span className="font-data-mono text-2xl text-on-surface">14.2%</span>
+                                                    <p className="font-label-caps text-[9px] text-primary mt-1">ESTIMATED YR 1</p>
+                                                </div>
+                                            </div>
+                                            <div className="col-span-1 border border-[#E8E8E3] p-4 flex flex-col justify-between hover:bg-surface-container-low transition-all cursor-pointer">
+                                                <span className="font-label-caps text-[10px] text-outline uppercase">Carbon Offset</span>
+                                                <div className="mt-4">
+                                                    <span className="font-data-mono text-2xl text-on-surface">3.4 <span className="text-lg">tCO2e</span></span>
+                                                    <p className="font-label-caps text-[9px] text-primary mt-1">NET NEUTRALITY</p>
+                                                </div>
+                                            </div>
+                                            <div className="col-span-2 border border-[#E8E8E3] relative overflow-hidden h-48 bg-surface-container-low">
+                                                <div className="absolute inset-0 grayscale opacity-40 bg-cover bg-center" style={{backgroundImage: "url('https://lh3.googleusercontent.com/aida-public/AB6AXuAdbs40RZuWWUBWEruEhpZ75BefaT1kiQMpKDpJYjmQmNGgNPmatVaVm8j3T4c-E7bUyGc99Yp5kvs9NMRBwJd5-AYWybPxjZbu30rKd0zQWysGIzPANnoRe_9rwgGqwUfCEzszdAHe1htjYPggdglebGXf0FVjH7u6Lu046R-1zlifWrxIRkYpXMpRbzPfuhsuYLXrp41rOu9AhoMb4Z0ExLXHwKx9gs5-mqLynrrtPTpvOSAr5oSVZV2l8U0EeCX9UC61KFuKU2k')"}}></div>
+                                                <div className="absolute inset-0 bg-gradient-to-t from-surface-container-lowest to-transparent z-10"></div>
+                                                <div className="absolute bottom-4 left-4 z-20">
+                                                    <span className="font-label-caps text-[10px] text-on-surface uppercase bg-white/80 backdrop-blur-sm px-2 py-1">Topographic Verification</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <footer className="mt-10 pt-6 border-t border-outline-variant flex justify-between items-center">
+                                            <div className="flex items-center gap-2">
+                                                <span className="w-2 h-2 rounded-full bg-secondary animate-pulse"></span>
+                                                <span className="font-label-caps text-[10px] text-outline uppercase">Syncing with Reonic Core...</span>
+                                            </div>
+                                            <span className="font-data-mono text-xs text-outline">VER 2.0.4 - STABLE</span>
+                                        </footer>
+                                    </div>
+                                </section>
+                            </div>
+                        </div>
+                    </main>
+                </div>
+            );
+        };
+
+        const SequencePlannerPage = () => {
+            const navigate = useNavigate();
+            return (
+                <div className="flex bg-background min-h-screen">
+                    <SideNav active="sequences" />
+                    <main className="ml-64 flex-1">
+                        <header className="sticky top-0 w-full z-40 bg-surface border-b border-outline-variant flex justify-between items-center px-6 py-4">
+                            <div className="flex items-center gap-4">
+                                <h1 className="font-display-md text-2xl italic text-primary">Sequence Planner</h1>
+                                <span className="px-3 py-1 bg-primary/10 text-primary rounded-full font-label-caps text-[10px]">LIVE CANVAS</span>
+                            </div>
+                            <div className="flex items-center gap-6">
+                                <button onClick={() => navigate('/replay')} className="text-on-surface-variant active:scale-95"><span className="material-symbols-outlined">replay</span></button>
+                                <button onClick={() => navigate('/adjust')} className="px-4 py-2 border border-[#E8E8E3] text-primary font-body-strong rounded-sm hover:bg-surface-container-low active:scale-95">Adjust Sequence</button>
+                                <button onClick={() => navigate('/brief')} className="px-4 py-2 bg-primary text-white font-body-strong rounded-sm hover:opacity-90 active:scale-95">Export brief</button>
+                                <div className="w-8 h-8 rounded-full overflow-hidden border border-[#E8E8E3]">
+                                    <img className="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBk0sBa17af-Yxj9FlTeL6dzedpgb1BZ2J8VV4y0DBgTagHPXI6eP-XS97JEcEhr8gTrGNWOMhPnzqrk9qLF2Q1TkLe_BREgj1VWTvREETUMZUhnL-vlvtXp4MKQuScFWDLRedVXAdqfk36Jg1fIiY1k1u06nO8qy1JpGNz22tMArpH99C5EyYYT1__zLw49NWBi8iDES-8XyzNVWLnHYF6ZlbDiuinPS3ciz0TrzEd8FRbbP4XF7ff013KXzDlaevIRRAiasonJKI" alt="User" />
+                                </div>
+                            </div>
+                        </header>
+
+                        <div className="p-6 flex flex-col md:flex-row gap-6">
+                            <div className="flex-1 space-y-6">
+                                <div className="bg-white border border-[#E8E8E3] p-6 rounded-xl">
+                                    <div className="flex justify-between items-end">
+                                        <div>
+                                            <h2 className="text-3xl font-display-md italic text-on-surface mb-2">Elena Volkov</h2>
+                                            <div className="flex items-center gap-4">
+                                                <span className="text-2xl font-medium text-on-surface">€32,400</span>
+                                                <div className="px-3 py-1 bg-primary/5 text-primary rounded-full font-label-caps text-[9px] uppercase flex items-center gap-1">
+                                                    <span className="material-symbols-outlined text-xs">location_on</span>Berlin, DE
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-col items-end gap-2">
+                                            <div className="flex justify-between w-[320px] font-label-caps text-[10px] text-outline">
+                                                <span>PIONEER</span><span>CONSERVATIVE</span>
+                                            </div>
+                                            <div className="w-[320px] h-2 border border-[#E8E8E3] rounded-full overflow-hidden">
+                                                <div className="archetype-gradient h-full w-full"></div>
+                                            </div>
+                                            <span className="font-label-caps text-[9px] text-outline">ARCHETYPE BLEND: 65/35</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-6">
+                                    <div className="bg-white border border-[#E8E8E3] p-6 rounded-xl flex items-center justify-between">
+                                        <div>
+                                            <p className="font-label-caps text-[10px] text-outline mb-1 uppercase">GHOST RISK</p>
+                                            <h3 className="text-3xl font-body-main">0.34</h3>
+                                        </div>
+                                        <div className="h-10 w-1 bg-error-container rounded-full overflow-hidden">
+                                            <div className="h-1/3 w-full bg-error"></div>
+                                        </div>
+                                    </div>
+                                    <div className="bg-white border border-[#E8E8E3] p-6 rounded-xl flex items-center justify-between">
+                                        <div>
+                                            <p className="font-label-caps text-[10px] text-outline mb-1 uppercase">CLOSE READINESS</p>
+                                            <h3 className="text-3xl font-body-main">0.71</h3>
+                                        </div>
+                                        <div className="h-10 w-1 bg-secondary-container rounded-full overflow-hidden">
+                                            <div className="h-2/3 w-full bg-secondary"></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <section>
+                                    <div className="flex items-center gap-4 mb-6">
+                                        <span className="font-label-caps text-[10px] text-outline uppercase">Sequence Timeline</span>
+                                        <div className="flex-grow h-px bg-outline-variant/30"></div>
+                                    </div>
+                                    <div className="grid grid-cols-4 gap-4">
+                                        <div className="bg-white border border-[#E8E8E3] rounded-xl p-4 relative overflow-hidden group hover:bg-surface-bright transition-all cursor-pointer active:scale-95">
+                                            <div className="absolute top-0 left-0 right-0 h-[3px] bg-primary-container"></div>
+                                            <div className="flex justify-between items-start mb-4">
+                                                <span className="font-label-caps text-[10px] text-outline">DAY 01</span>
+                                                <span className="material-symbols-outlined text-primary-container">mail</span>
+                                            </div>
+                                            <h4 className="font-body-strong mb-1">The Opening Salvo</h4>
+                                            <p className="text-xs text-on-surface-variant leading-tight">Focus on infrastructure autonomy and long-term yield.</p>
+                                        </div>
+                                        <div className="bg-white border border-[#E8E8E3] rounded-xl p-4 relative overflow-hidden group hover:bg-surface-bright transition-all cursor-pointer active:scale-95">
+                                            <div className="absolute top-0 left-0 right-0 h-[3px] bg-secondary"></div>
+                                            <div className="flex justify-between items-start mb-4">
+                                                <span className="font-label-caps text-[10px] text-outline">DAY 04</span>
+                                                <span className="material-symbols-outlined text-secondary">call</span>
+                                            </div>
+                                            <h4 className="font-body-strong mb-1">Contextual Bridge</h4>
+                                            <p className="text-xs text-on-surface-variant leading-tight">Discussing regional grid stability and policy shifts.</p>
+                                        </div>
+                                        <div className="bg-white border border-[#E8E8E3] rounded-xl p-4 relative overflow-hidden group hover:bg-surface-bright transition-all cursor-pointer active:scale-95">
+                                            <div className="absolute top-0 left-0 right-0 h-[3px] bg-tertiary"></div>
+                                            <div className="flex justify-between items-start mb-4">
+                                                <span className="font-label-caps text-[10px] text-outline">DAY 08</span>
+                                                <span className="material-symbols-outlined text-tertiary">article</span>
+                                            </div>
+                                            <h4 className="font-body-strong mb-1">Whitepaper Send</h4>
+                                            <p className="text-xs text-on-surface-variant leading-tight">Deep dive into technical specs for Elena's team.</p>
+                                        </div>
+                                        <div className="bg-white border border-[#E8E8E3] rounded-xl p-4 relative overflow-hidden group hover:bg-surface-bright transition-all cursor-pointer active:scale-95">
+                                            <div className="absolute top-0 left-0 right-0 h-[3px] bg-primary"></div>
+                                            <div className="flex justify-between items-start mb-4">
+                                                <span className="font-label-caps text-[10px] text-outline">DAY 12</span>
+                                                <span className="material-symbols-outlined text-primary">handshake</span>
+                                            </div>
+                                            <h4 className="font-body-strong mb-1">Commitment Call</h4>
+                                            <p className="text-xs text-on-surface-variant leading-tight">Finalizing deployment phase 1 and onboarding.</p>
+                                        </div>
+                                    </div>
+                                </section>
+                            </div>
+
+                            <aside className="w-80 bg-white border-l border-[#E8E8E3] p-6 space-y-8">
+                                <div className="flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-primary">psychology</span>
+                                    <h5 className="font-label-caps text-[10px] uppercase tracking-wider text-on-surface">Sequence Reasoning</h5>
+                                </div>
+                                <div className="text-[13px] text-on-surface-variant leading-relaxed space-y-4">
+                                    <p>Elena exhibits a <span className="bg-primary/10 px-1 rounded">High Technical Threshold</span>. The sequence prioritizes peer-reviewed evidence.</p>
+                                    <p>The "Ghost Risk" of 0.34 is primarily driven by <span className="bg-tertiary-container/10 px-1 rounded">Q3 budgetary cycles</span>.</p>
+                                    <p>Readiness is peaking. LinkedIn activity suggests she is actively vetting storage solutions.</p>
+                                </div>
+                                <div className="pt-6 border-t border-[#E8E8E3]">
+                                    <p className="font-label-caps text-[9px] text-outline mb-3 uppercase">ARCHETYPE MATCHING</p>
+                                    <div className="flex flex-wrap gap-2">
+                                        <span className="px-2 py-1 bg-primary/10 text-primary rounded text-[11px] font-medium">Strategic</span>
+                                        <span className="px-2 py-1 bg-tertiary/10 text-tertiary rounded text-[11px] font-medium">Risk-Averse</span>
+                                        <span className="px-2 py-1 bg-secondary/10 text-secondary rounded text-[11px] font-medium">Data-Driven</span>
+                                    </div>
+                                </div>
+                            </aside>
+                        </div>
+                    </main>
+                </div>
+            );
+        };
+
+        const ReplayPage = () => {
+            const navigate = useNavigate();
+            const [day, setDay] = useState(12);
+
+            return (
+                <div className="fixed inset-0 z-[100] backdrop-blur-custom flex flex-col bg-background/80 overflow-hidden">
+                    <header className="flex justify-between items-center px-6 py-4">
+                        <div className="flex flex-col">
+                            <h1 className="font-display-md text-[22px] italic text-primary leading-none">Replay</h1>
+                            <p className="font-body-main text-on-surface-variant text-sm mt-1">Simulated outcome for Maria Müller receiveing this sequence.</p>
+                        </div>
+                        <button onClick={() => navigate(-1)} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors active:scale-95">
+                            <span className="material-symbols-outlined">close</span>
+                        </button>
+                    </header>
+
+                    <main className="flex-1 relative overflow-hidden px-10 flex flex-col items-center justify-center">
+                        <div className="absolute inset-0 pointer-events-none">
+                            <div className="absolute top-[15%] left-[20%] w-64 bg-white p-4 border border-[#E8E8E3] rounded-lg animate-float" style={{animationDelay: '-1s'}}>
+                                <div className="font-label-caps text-[9px] text-outline uppercase mb-2">DAY 4 · VOICE MESSAGE</div>
+                                <p className="font-display-md italic text-md text-on-surface leading-tight mb-2">"This looks quite relevant to our Q4 infrastructure roadmap."</p>
+                                <div className="flex justify-end"><div className="px-2 py-0.5 bg-green-50 text-green-700 text-[8px] font-label-caps rounded-full">Interested</div></div>
+                            </div>
+                            <div className="absolute top-[30%] right-[25%] w-72 bg-white p-4 border border-[#E8E8E3] rounded-lg animate-float">
+                                <div className="font-label-caps text-[9px] text-outline uppercase mb-2">DAY 8 · EMAIL REPLY</div>
+                                <p className="font-display-md italic text-md text-on-surface leading-tight mb-2">"Received the specs. I need to clear this with the engineering lead."</p>
+                                <div className="flex justify-end"><div className="px-2 py-0.5 bg-gray-50 text-gray-500 text-[8px] font-label-caps rounded-full">Neutral</div></div>
+                            </div>
+                        </div>
+
+                        <div className="z-10 flex gap-4 mb-10">
+                            <div className="w-48 p-6 bg-white border border-[#E8E8E3] rounded-xl flex flex-col items-center">
+                                <span className="font-label-caps text-[9px] text-outline mb-2 uppercase">GHOST RISK</span>
+                                <div className="text-3xl font-data-mono text-error">12%</div>
+                                <div className="w-full bg-surface-container-high h-1 mt-4 rounded-full overflow-hidden">
+                                    <div className="bg-error h-full" style={{width: '12%'}}></div>
+                                </div>
+                            </div>
+                            <div className="w-48 p-6 bg-white border border-[#E8E8E3] rounded-xl flex flex-col items-center">
+                                <span className="font-label-caps text-[9px] text-outline mb-2 uppercase">ENGAGEMENT QUALITY</span>
+                                <div className="text-3xl font-data-mono text-secondary">High</div>
+                                <div className="flex gap-1 mt-4">
+                                    <div className="w-2 h-2 rounded-full bg-secondary"></div>
+                                    <div className="w-2 h-2 rounded-full bg-secondary"></div>
+                                    <div className="w-2 h-2 rounded-full bg-secondary"></div>
+                                    <div className="w-2 h-2 rounded-full bg-secondary/30"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="w-full max-w-4xl px-10 mt-10">
+                            <div className="relative py-10">
+                                <div className="flex justify-between mb-4 font-data-mono text-[10px] text-outline">
+                                    <span>0</span><span>10</span><span>20</span><span>30</span>
+                                </div>
+                                <div className="h-0.5 w-full bg-[#E8E8E3] relative rounded-full">
+                                    <div className="absolute h-full bg-primary-container/20 rounded-full" style={{width: `${(day/30)*100}%`}}></div>
+                                    <input 
+                                        type="range" min="0" max="30" value={day} 
+                                        onChange={(e) => setDay(e.target.value)}
+                                        className="absolute top-1/2 -translate-y-1/2 w-full opacity-0 cursor-pointer z-20"
+                                    />
+                                    <div className="absolute top-1/2 -translate-y-1/2 flex flex-col items-center" style={{left: `${(day/30)*100}%`, transition: 'left 0.1s'}}>
+                                        <div className="mb-2 px-2 py-1 bg-primary text-white text-[10px] font-data-mono rounded-sm">DAY {day}</div>
+                                        <div className="w-4 h-4 bg-primary rounded-full border-2 border-white shadow-sm"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="w-full max-w-md bg-white border border-[#E8E8E3] rounded-t-xl p-8 mt-auto shadow-sm border-t-2">
+                            <div className="flex justify-between items-end mb-6">
+                                <div className="flex flex-col">
+                                    <span className="font-label-caps text-[9px] text-outline uppercase mb-1">PROJECTED OUTCOME</span>
+                                    <h2 className="font-display-md text-3xl italic text-primary leading-tight">Closed won.</h2>
+                                </div>
+                                <div className="text-right">
+                                    <span className="font-data-mono text-2xl text-on-surface">73%</span>
+                                    <p className="font-label-caps text-[8px] text-outline uppercase">PROBABILITY</p>
+                                </div>
+                            </div>
+                            <div className="flex flex-col gap-3">
+                                <button className="w-full py-4 bg-primary-container text-white font-body-strong rounded-sm hover:opacity-90 active:scale-95">Generate coaching note</button>
+                                <button className="w-full py-4 border border-[#E8E8E3] text-on-surface font-body-strong rounded-sm hover:bg-surface-container active:scale-95">What if she ghosts...?</button>
+                            </div>
+                        </div>
+                    </main>
+                </div>
+            );
+        };
+
+        const AdjustPage = () => {
+            const navigate = useNavigate();
+            const [tone, setTone] = useState(80);
+            const [isRegenerating, setIsRegenerating] = useState(false);
+
+            const handleRegenerate = () => {
+                setIsRegenerating(true);
+                setTimeout(() => {
+                    setIsRegenerating(false);
+                    navigate('/sequences');
+                }, 2000);
+            };
+
+            const getToneLabel = (val) => {
+                if (val < 33) return 'Warm & Collaborative';
+                if (val < 66) return 'Balanced Professional';
+                return 'More Urgent';
+            };
+
+            return (
+                <div className="flex h-screen overflow-hidden">
+                    <SideNav active="sequences" />
+                    <main className="ml-64 flex-1 flex flex-col relative overflow-hidden bg-surface">
+                        <TopBar title="Sequence Planner" showAdjust={false} />
+                        <section className="p-10 flex-1 overflow-y-auto no-scrollbar">
+                            <div className="max-w-4xl mx-auto space-y-10">
+                                <div className="border-b border-[#E8E8E3] pb-4">
+                                    <h2 className="font-display-lg text-4xl">Technical Deployment Strategy</h2>
+                                    <p className="font-body-main text-on-surface-variant mt-2 italic">Phase 1: Regional Grid Neutrality Alignment</p>
+                                </div>
+                                <div className="grid grid-cols-12 gap-6">
+                                    <div className="col-span-8 p-6 border border-[#E8E8E3] bg-white rounded-sm">
+                                        <p className="font-label-caps text-[10px] text-outline uppercase mb-4">Abstract</p>
+                                        <p className="font-body-main leading-relaxed">The proposed sequence integrates decentralized infrastructure modules within the existing urban fabric. Priority is assigned to thermal bridging across the northern corridor.</p>
+                                    </div>
+                                    <div className="col-span-4 p-6 border border-[#E8E8E3] bg-white rounded-sm flex flex-col justify-between">
+                                        <div>
+                                            <p className="font-label-caps text-[10px] text-outline uppercase mb-2">Efficiency Rating</p>
+                                            <p className="font-display-md text-3xl text-secondary">94.2%</p>
+                                        </div>
+                                        <div className="mt-4 h-1 bg-surface-container rounded-full overflow-hidden">
+                                            <div className="h-full bg-secondary" style={{width: '94%'}}></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <div className="fixed right-0 top-0 h-screen w-[380px] bg-white border-l border-[#E8E8E3] z-50 flex flex-col shadow-2xl">
+                            <div className="px-6 py-4 border-b border-[#E8E8E3] flex items-center justify-between">
+                                <h3 className="font-label-caps text-[10px] text-on-surface-variant uppercase tracking-[0.15em]">Adjust Sequence</h3>
+                                <button onClick={() => navigate(-1)} className="material-symbols-outlined text-outline hover:text-primary transition-colors">close</button>
+                            </div>
+                            <div className="flex-1 overflow-y-auto p-6 space-y-10 no-scrollbar">
+                                <section className="space-y-2">
+                                    <div className="flex justify-between items-end mb-2">
+                                        <label className="font-label-caps text-[10px] text-outline uppercase">Sequence Tone</label>
+                                        <span className="font-body-main italic text-primary text-xs">{getToneLabel(tone)}</span>
+                                    </div>
+                                    <input className="w-full" type="range" min="0" max="100" value={tone} onChange={(e) => setTone(e.target.value)} />
+                                    <div className="flex justify-between mt-2 font-label-caps text-[9px] text-outline uppercase">
+                                        <span>Warmer</span><span>More Urgent</span>
+                                    </div>
+                                </section>
+
+                                <section className="space-y-4">
+                                    <label className="font-label-caps text-[10px] text-outline uppercase">Active Channels</label>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        {['Direct Email', 'LinkedIn InMail', 'Press Release', 'Field Report'].map(channel => (
+                                            <label key={channel} className="flex items-center gap-3 group cursor-pointer">
+                                                <input defaultChecked={['Direct Email', 'LinkedIn InMail'].includes(channel)} className="w-4 h-4 border-outline-variant text-primary focus:ring-0 rounded-none bg-surface-container-lowest" type="checkbox" />
+                                                <span className="font-body-main text-on-surface-variant group-hover:text-primary">{channel}</span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                </section>
+
+                                <section className="space-y-2">
+                                    <label className="font-label-caps text-[10px] text-outline uppercase">Technical Formality</label>
+                                    <div className="flex border border-outline-variant p-1 rounded-sm bg-surface-container-low">
+                                        {['Low', 'Mid', 'High'].map(level => (
+                                            <button key={level} className={`flex-1 py-1.5 font-label-caps text-[10px] uppercase transition-all ${level === 'Mid' ? 'bg-primary-container/10 text-primary border border-primary/20' : 'text-outline hover:text-primary'}`}>{level}</button>
+                                        ))}
+                                    </div>
+                                </section>
+
+                                <section className="space-y-2">
+                                    <label className="font-label-caps text-[10px] text-outline uppercase">Custom Directives</label>
+                                    <textarea className="w-full h-32 p-3 bg-surface border border-outline-variant rounded-sm font-body-main text-on-surface focus:border-primary focus:ring-0 placeholder:italic" placeholder="Anything specific to adjust?"></textarea>
+                                </section>
+                            </div>
+                            <div className="p-6 border-t border-[#E8E8E3] bg-white">
+                                <button 
+                                    onClick={handleRegenerate}
+                                    disabled={isRegenerating}
+                                    className="w-full py-4 bg-primary text-on-primary font-body-strong flex items-center justify-center gap-3 hover:opacity-95 active:scale-[0.98] transition-all disabled:opacity-50"
+                                >
+                                    <span className="material-symbols-outlined">refresh</span>
+                                    <span>{isRegenerating ? 'Reading changes...' : 'Regenerate'}</span>
+                                </button>
+                            </div>
+                        </div>
+                    </main>
+                </div>
+            );
+        };
+
+        const BriefPage = () => {
+            const navigate = useNavigate();
+            return (
+                <div className="flex bg-background min-h-screen">
+                    <SideNav active="sequences" />
+                    <main className="ml-64 flex-1 p-10 flex flex-col items-center">
+                        <div className="w-full max-w-[210mm] flex justify-between items-end mb-8 no-print">
+                            <div>
+                                <h2 className="font-headline-section text-2xl font-semibold">Preview Deal Brief</h2>
+                                <p className="text-on-surface-variant font-body-main mt-1">Review the generated summary before exporting to PDF.</p>
+                            </div>
+                            <div className="flex gap-4">
+                                <button onClick={() => navigate(-1)} className="px-4 py-2 rounded-sm border border-outline-variant font-body-strong text-on-surface hover:bg-white active:scale-95">Edit before sending</button>
+                                <button className="px-4 py-2 rounded-sm bg-primary text-white font-body-strong hover:opacity-90 flex items-center gap-2 active:scale-95" onClick={() => window.print()}>
+                                    <span className="material-symbols-outlined text-[18px]">download</span>Download PDF
+                                </button>
+                            </div>
+                        </div>
+
+                        <article className="a4-container bg-white shadow-[0_1px_2px_rgba(20,24,32,0.04)] border border-[#E8E8E3] p-16 flex flex-col relative overflow-hidden">
+                            <header className="flex justify-between items-start border-b border-[#E8E8E3] pb-8 mb-10">
+                                <div><span className="font-wordmark text-3xl italic text-primary leading-none">Cadence</span></div>
+                                <div className="text-right">
+                                    <span className="font-label-caps text-[10px] text-outline block mb-1">DEAL BRIEF · 20 JUN 2026</span>
+                                    <span className="font-data-mono text-[9px] text-outline-variant">REF: DE-2991-VOLKOV</span>
+                                </div>
+                            </header>
+
+                            <section className="mb-10">
+                                <div className="flex justify-between items-end">
+                                    <div>
+                                        <h1 className="font-display-lg text-4xl italic text-primary mb-2">Maria Müller</h1>
+                                        <div className="flex items-center gap-4 font-data-mono text-[11px] text-on-surface-variant uppercase tracking-wider">
+                                            <span>€18,400</span><span className="w-1 h-1 rounded-full bg-outline-variant"></span><span>CLOSE TARGET 15 JUL</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <span className="archetype-chip bg-secondary-container/20 text-secondary border border-secondary/10 px-2 py-0.5 text-[9px] font-data-mono uppercase rounded">Investor</span>
+                                        <span className="archetype-chip bg-tertiary-container/20 text-tertiary border border-tertiary/10 px-2 py-0.5 text-[9px] font-data-mono uppercase rounded">Skeptic</span>
+                                    </div>
+                                </div>
+                                <div className="mt-8 h-px bg-[#E8E8E3] w-full"></div>
+                            </section>
+
+                            <div className="grid grid-cols-12 gap-10 flex-grow">
+                                <div className="col-span-7 space-y-10">
+                                    <section>
+                                        <h3 className="font-label-caps text-[10px] text-outline mb-4 uppercase">My Read</h3>
+                                        <p className="font-body-main text-on-surface-variant leading-relaxed">Elena is prioritizing ROI over long-term goals. She has expressed concerns regarding initial CapEx. Her team is sold on decentralization.</p>
+                                    </section>
+                                    <section className="bg-primary/5 border-l-2 border-primary-container pl-6 py-4">
+                                        <h3 className="font-label-caps text-[10px] text-primary mb-2 uppercase">Where I need help</h3>
+                                        <p className="font-body-main text-on-surface-variant italic">"Requesting a 4% discretionary discount ceiling for the final negotiation session."</p>
+                                    </section>
+                                </div>
+                                <div className="col-span-5 space-y-10">
+                                    <section>
+                                        <h3 className="font-label-caps text-[10px] text-outline mb-4 uppercase">My Plan</h3>
+                                        <div className="flex justify-between items-center relative py-4">
+                                            <div className="absolute top-1/2 left-0 w-full h-px bg-[#E8E8E3] -z-0"></div>
+                                            {[1, 3, 5, 8, 12, 15, 18, 21].map(d => (
+                                                <div key={d} className="flex flex-col items-center gap-1 bg-white px-1 z-10">
+                                                    <span className={`material-symbols-outlined text-[16px] ${d < 10 ? 'text-primary' : 'text-outline opacity-40'}`}>
+                                                        {d === 1 ? 'mail' : d === 3 ? 'chat' : d === 5 ? 'present_to_all' : 'contract'}
+                                                    </span>
+                                                    <span className="font-data-mono text-[8px] text-outline">D{d}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </section>
+                                    <section>
+                                        <h3 className="font-label-caps text-[10px] text-outline mb-4 uppercase">Risks & Mitigations</h3>
+                                        <ul className="space-y-4">
+                                            <li className="flex gap-3">
+                                                <span className="text-error material-symbols-outlined text-sm mt-1">warning</span>
+                                                <div>
+                                                    <p className="font-body-strong text-on-surface text-[13px]">Budget Freeze</p>
+                                                    <p className="text-[11px] text-on-surface-variant leading-tight">CFO reviewing all external projects.</p>
+                                                </div>
+                                            </li>
+                                        </ul>
+                                    </section>
+                                </div>
+                            </div>
+
+                            <footer className="mt-auto pt-8 border-t border-[#E8E8E3] flex justify-between items-center text-outline font-label-caps text-[9px] uppercase tracking-widest">
+                                <div className="font-data-mono">Generated by Stefan Bauer</div>
+                                <div>EU-RESIDENT · AI ACT ART. 50</div>
+                                <div>Page 01/01</div>
+                            </footer>
+                            <div className="pointer-events-none absolute inset-0 opacity-[0.03] overflow-hidden mix-blend-multiply">
+                                <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                                    <filter id="noiseFilter"><feTurbulence baseFrequency="0.65" numOctaves="3" stitchTiles="stitch" type="fractalNoise" /></filter>
+                                    <rect filter="url(#noiseFilter)" height="100%" width="100%"></rect>
+                                </svg>
+                            </div>
+                        </article>
+                        <GlobalFooter />
+                    </main>
+                </div>
+            );
+        };
+
+        // --- Main App ---
+
+        const App = () => {
+            return (
+                <MemoryRouter>
+                    <Routes>
+                        <Route path="/" element={<PipelinePage />} />
+                        <Route path="/intake" element={<IntakePage />} />
+                        <Route path="/sequences" element={<SequencePlannerPage />} />
+                        <Route path="/replay" element={<ReplayPage />} />
+                        <Route path="/adjust" element={<AdjustPage />} />
+                        <Route path="/brief" element={<BriefPage />} />
+                        <Route path="*" element={<PipelinePage />} />
+                    </Routes>
+                </MemoryRouter>
+            );
+        };
+
+        const root = createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

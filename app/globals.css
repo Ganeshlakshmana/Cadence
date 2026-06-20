@@ -1,0 +1,251 @@
+/* ── Tailwind v4 entry point ──────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap');
+@import "tailwindcss";
+
+/* ── Tailwind v4 design tokens ─────────────────────────────────────────────
+   In v4: --color-* → text-*, bg-*, border-* utilities
+          --font-*  → font-* utilities  (NOT --font-family-*)
+          --radius-* → rounded-* utilities
+──────────────────────────────────────────────────────────────────────────── */
+@theme {
+  /* ── Colors (Material You tonal palette) ── */
+  --color-on-tertiary-fixed-variant: #693a34;
+  --color-tertiary-container: #794741;
+  --color-error-container: #ffdad6;
+  --color-surface-bright: #f9faf7;
+  --color-on-primary-container: #a2d4c1;
+  --color-surface-container-high: #e7e8e6;
+  --color-secondary-container: #a7efce;
+  --color-on-primary-fixed: #002118;
+  --color-inverse-surface: #2e312f;
+  --color-secondary-fixed-dim: #8ed5b5;
+  --color-surface-dim: #d9dad8;
+  --color-on-background: #1a1c1b;
+  --color-primary-fixed-dim: #9fd1be;
+  --color-secondary: #226a50;
+  --color-on-tertiary-container: #fcb9b0;
+  --color-on-primary: #ffffff;
+  --color-surface-tint: #386758;
+  --color-on-secondary-fixed-variant: #00513a;
+  --color-error: #ba1a1a;
+  --color-tertiary-fixed-dim: #f9b6ae;
+  --color-on-tertiary: #ffffff;
+  --color-primary-container: #2e5d4e;
+  --color-inverse-primary: #9fd1be;
+  --color-primary: #144537;
+  --color-on-surface: #1a1c1b;
+  --color-outline-variant: #c0c8c3;
+  --color-outline: #717975;
+  --color-on-error-container: #93000a;
+  --color-on-secondary-container: #276e54;
+  --color-secondary-fixed: #aaf1d1;
+  --color-surface: #f9faf7;
+  --color-surface-variant: #e2e3e0;
+  --color-surface-container: #edeeeb;
+  --color-surface-container-lowest: #ffffff;
+  --color-tertiary-fixed: #ffdad5;
+  --color-on-tertiary-fixed: #34100c;
+  --color-surface-container-highest: #e2e3e0;
+  --color-surface-container-low: #f3f4f1;
+  --color-on-secondary-fixed: #002115;
+  --color-primary-fixed: #bbedd9;
+  --color-on-secondary: #ffffff;
+  --color-tertiary: #5e312b;
+  --color-on-surface-variant: #404945;
+  --color-on-error: #ffffff;
+  --color-background: #f9faf7;
+  --color-inverse-on-surface: #f0f1ee;
+  --color-on-primary-fixed-variant: #1f4f40;
+
+  /* ── Border radius ── */
+  --radius: 0.125rem;
+  /* rounded */
+  --radius-lg: 0.25rem;
+  --radius-xl: 0.5rem;
+  --radius-full: 0.75rem;
+
+  /* ── Font families ── (v4: --font-<name> → font-<name> utility) ── */
+  --font-body-main: "Inter", sans-serif;
+  --font-display-lg: "Instrument Serif", serif;
+  --font-headline-section: "Inter", sans-serif;
+  --font-label-caps: "JetBrains Mono", monospace;
+  --font-data-mono: "JetBrains Mono", monospace;
+  --font-wordmark: "Instrument Serif", serif;
+  --font-body-strong: "Inter", sans-serif;
+  --font-display-md: "Instrument Serif", serif;
+}
+
+/* ── Material Symbols ─────────────────────────────────────────────────────── */
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 20px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-feature-settings: 'liga';
+  font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  user-select: none;
+  vertical-align: middle;
+}
+
+/* ── Base ─────────────────────────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-on-surface);
+  font-family: "Inter", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Hairline border ──────────────────────────────────────────────────────── */
+.hairline {
+  border: 1px solid #E8E8E3;
+}
+
+/* ── Archetype gradient bar ───────────────────────────────────────────────── */
+.archetype-gradient {
+  background: linear-gradient(90deg, #2E5D4E 0%, #2E5D4E 65%, #794741 65%, #794741 100%);
+}
+
+/* ── A4 print container ───────────────────────────────────────────────────── */
+.a4-container {
+  width: 210mm;
+  min-height: 297mm;
+  margin: 0 auto;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  .a4-container {
+    margin: 0;
+    border: none;
+    box-shadow: none;
+  }
+}
+
+/* ── Scrollbar hide ───────────────────────────────────────────────────────── */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* ── Range slider ─────────────────────────────────────────────────────────── */
+input[type=range] {
+  -webkit-appearance: none;
+  background: transparent;
+  width: 100%;
+}
+
+input[type=range]:focus {
+  outline: none;
+}
+
+input[type=range]::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 1px;
+  cursor: pointer;
+  background: #E8E8E3;
+}
+
+input[type=range]::-webkit-slider-thumb {
+  height: 12px;
+  width: 12px;
+  border-radius: 2px;
+  background: #2E5D4E;
+  cursor: pointer;
+  -webkit-appearance: none;
+  margin-top: -5.5px;
+}
+
+/* ── Animations ───────────────────────────────────────────────────────────── */
+@keyframes float {
+  0% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-4px);
+  }
+
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes pulse-dot {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.animate-pulse {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+/* ── Backdrop blur panel ──────────────────────────────────────────────────── */
+.backdrop-blur-custom {
+  backdrop-filter: blur(12px);
+  background-color: rgba(249, 250, 247, 0.85);
+}
+
+/* ── Archetype chip ───────────────────────────────────────────────────────── */
+.archetype-chip {
+  display: inline-flex;
+  align-items: center;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border-radius: 2px;
+  padding: 2px 6px;
+}
+
+/* ── Translate Y ─────────────────────────────────────────────────────────── */
+.-translate-y-1\/2 {
+  transform: translateY(-50%);
+}
+
+.translate-y-1\/2 {
+  transform: translateY(50%);
+}

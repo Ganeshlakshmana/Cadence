@@ -13,7 +13,8 @@
     "test:strategy": "tsx scripts/test-strategy.ts",
     "test:solar": "tsx scripts/test-solar.ts",
     "test:replay": "tsx scripts/test-replay.ts",
-    "test:manager-voice": "tsx scripts/test-manager-voice.ts"
+    "test:manager-voice": "tsx scripts/test-manager-voice.ts",
+    "test:send-email": "tsx scripts/test-send-email.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.105.0",
@@ -32,9 +33,13 @@
     "postcss": "^8.5.15",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
+    "resend": "^6.14.0",
     "tailwindcss": "^4.3.1",
     "tsx": "^4.22.4",
     "typescript": "^6.0.3",
     "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.1"
   }
 }
