@@ -29,10 +29,6 @@ const STAGE_COLORS: Record<string, string> = {
   Discovery:   'bg-surface-variant text-on-surface-variant',
 };
 
-const CHANNEL_ICON: Record<string, string> = {
-  email: '✉', call: '📞', whatsapp_text: '💬', linkedin: '🔗',
-};
-
 function formatPrice(price: number, currency: string) {
   return new Intl.NumberFormat('de-DE', { style: 'currency', currency, minimumFractionDigits: 0 }).format(price);
 }
@@ -139,7 +135,7 @@ export default function PipelinePage() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr style={{ backgroundColor: 'var(--color-surface-container-low)', borderBottom: '1px solid var(--color-outline-variant)' }}>
-                    {['CUSTOMER', 'QUOTE VALUE', 'ARCHETYPE MIX', 'STAGE', 'LAST TOUCH', 'GHOST RISK', 'CLOSE READINESS'].map(h => (
+                    {['CUSTOMER', 'QUOTE VALUE', 'ARCHETYPE MIX', 'STAGE', 'LAST TOUCH', 'GHOST RISK', 'CLOSE READINESS', ''].map(h => (
                       <th key={h} className="px-6 py-4 font-label-caps text-on-surface-variant uppercase" style={{ fontSize: 10 }}>{h}</th>
                     ))}
                   </tr>
@@ -204,6 +200,17 @@ export default function PipelinePage() {
                               <span className="font-label-caps uppercase" style={{ fontSize: 9 }}>{highReady ? 'High' : 'Mid'}</span>
                             </div>
                           </div>
+                        </td>
+                        <td className="px-4 py-6 text-right">
+                          {c.strategyId && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); router.push(`/brief?strategyId=${c.strategyId}`); }}
+                              className="px-3 py-1.5 font-label-caps rounded hover:opacity-90 active:scale-95 transition-all"
+                              style={{ fontSize: 10, border: '1px solid rgba(20,69,55,0.25)', color: 'var(--color-primary)' }}
+                            >
+                              Export brief
+                            </button>
+                          )}
                         </td>
                       </tr>
                     );

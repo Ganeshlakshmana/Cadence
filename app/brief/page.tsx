@@ -41,7 +41,7 @@ function BriefInner() {
   const searchParams = useSearchParams();
   const strategyId = searchParams.get('strategyId');
 
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(Boolean(strategyId));
   const [data, setData]       = useState<BriefData | null>(null);
   const [error, setError]     = useState<string | null>(null);
 
@@ -209,16 +209,19 @@ function BriefInner() {
               {/* Right column */}
               <div className="space-y-10">
                 <section>
-                  <h3 className="font-label-caps text-outline mb-4 uppercase" style={{ fontSize: 10 }}>My Plan</h3>
-                  {data?.touchSummary && data.touchSummary.length > 0 ? (
-                    <div className="flex justify-between items-center relative py-4">
+                  <h3 className="font-label-caps text-outline mb-3 uppercase" style={{ fontSize: 10 }}>My Plan</h3>
+                  <p className="font-body-main text-on-surface-variant leading-relaxed" style={{ fontSize: 12 }}>
+                    {data?.onePager?.myPlan ?? '—'}
+                  </p>
+                  {data?.touchSummary && data.touchSummary.length > 0 && (
+                    <div className="flex justify-between items-center relative py-3 mt-3">
                       <div className="absolute top-1/2 left-0 w-full h-px" style={{ backgroundColor: '#E8E8E3', zIndex: 0 }} />
                       {data.touchSummary.slice(0, 8).map((t, idx) => (
                         <div key={idx} className="flex flex-col items-center gap-1 px-1 z-10" style={{ backgroundColor: 'white' }}>
                           <span
                             className="material-symbols-outlined"
                             style={{
-                              fontSize: 16,
+                              fontSize: 14,
                               color: idx < Math.ceil(data.touchSummary.length / 2)
                                 ? 'var(--color-primary)'
                                 : 'var(--color-outline)',
@@ -227,14 +230,10 @@ function BriefInner() {
                           >
                             {TOUCH_ICON(t.channel)}
                           </span>
-                          <span className="font-data-mono text-outline" style={{ fontSize: 8 }}>D{t.dayOffset}</span>
+                          <span className="font-data-mono text-outline" style={{ fontSize: 7 }}>D{t.dayOffset}</span>
                         </div>
                       ))}
                     </div>
-                  ) : (
-                    <p className="font-body-main text-on-surface-variant italic" style={{ fontSize: 13 }}>
-                      {data?.onePager?.myPlan ?? '—'}
-                    </p>
                   )}
                 </section>
 
@@ -246,7 +245,7 @@ function BriefInner() {
                           <li key={i} className="flex gap-3">
                             <span className="material-symbols-outlined text-error mt-1" style={{ fontSize: 14 }}>warning</span>
                             <div>
-                              <p className="font-body-strong text-on-surface" style={{ fontSize: 13 }}>{r.risk}</p>
+                              <p className="font-body-strong text-on-surface" style={{ fontSize: 12 }}>{r.risk}</p>
                               <p className="text-on-surface-variant leading-tight" style={{ fontSize: 11 }}>{r.mitigation}</p>
                             </div>
                           </li>
@@ -255,6 +254,18 @@ function BriefInner() {
                     }
                   </ul>
                 </section>
+
+                {data?.onePager?.expectedOutcome && (
+                  <section
+                    className="pl-4 py-3"
+                    style={{ backgroundColor: 'rgba(34,106,80,0.04)', borderLeft: '2px solid var(--color-secondary-container)' }}
+                  >
+                    <h3 className="font-label-caps text-outline mb-2 uppercase" style={{ fontSize: 10 }}>Expected Outcome</h3>
+                    <p className="font-body-main text-on-surface-variant leading-relaxed" style={{ fontSize: 12 }}>
+                      {data.onePager.expectedOutcome}
+                    </p>
+                  </section>
+                )}
               </div>
             </div>
 
