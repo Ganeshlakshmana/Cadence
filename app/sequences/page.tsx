@@ -63,6 +63,12 @@ interface StrategyData {
   touches: Touch[];
 }
 
+function parseJsonArr(v: unknown): string[] {
+  if (Array.isArray(v)) return v as string[];
+  if (typeof v === 'string') { try { return JSON.parse(v); } catch { return []; } }
+  return [];
+}
+
 // ── Channel icons ─────────────────────────────────────────────────────────────
 
 const CHANNEL_ICON: Record<string, string> = {
@@ -191,7 +197,12 @@ function SequencePlannerInner() {
       .then(async (data) => {
         if (data.error) throw new Error(data.error);
         setCustDetail(data.customer);
-        setProfile(data.profile);
+        setProfile(data.profile ? {
+          ...data.profile,
+          statedMotivations:       parseJsonArr(data.profile.statedMotivations),
+          statedObjections:        parseJsonArr(data.profile.statedObjections),
+          customerVerbatimPhrases: parseJsonArr(data.profile.customerVerbatimPhrases),
+        } : null);
         setQuote(data.quote);
 
         if (data.strategy && data.strategy.touches?.length > 0) {
