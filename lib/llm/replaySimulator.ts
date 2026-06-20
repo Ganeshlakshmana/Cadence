@@ -1,6 +1,7 @@
 import { anthropic, SONNET } from './client';
 import { ReplaySimulationSchema, type ReplaySimulation, type Strategy } from './schemas';
 import { REPLAY_SIMULATOR_SYSTEM } from './prompts';
+import { unwrapArrayFields } from './toolInput';
 
 const REPLAY_SIM_TOOL = {
   name: 'simulate_replay',
@@ -14,10 +15,7 @@ const REPLAY_SIM_TOOL = {
           type: 'object',
           properties: {
             touchSequenceIndex: { type: 'integer' },
-            responseType: {
-              type: 'string',
-              enum: ['opened_not_clicked', 'clicked_no_reply', 'replied_positive', 'replied_objection', 'replied_question', 'ignored', 'call_answered', 'call_voicemail', 'booked_meeting', 'unsubscribed'],
-            },
+            responseType: { type: 'string', enum: ['opened_not_clicked', 'clicked_no_reply', 'replied_positive', 'replied_objection', 'replied_question', 'ignored', 'call_answered', 'call_voicemail', 'booked_meeting', 'unsubscribed'] },
             responseSummary: { type: 'string' },
             responseFullText: { type: ['string', 'null'] },
             sentiment: { type: 'string', enum: ['positive', 'neutral', 'negative', 'objection', 'ready_to_buy'] },
@@ -63,7 +61,7 @@ Simulate how ${input.customerFirstName} would respond to each touchpoint. Be rea
 
   const call = async (strictMode = false): Promise<ReplaySimulation> => {
     const systemPrompt = strictMode
-      ? REPLAY_SIMULATOR_SYSTEM + '\n\nCRITICAL: Previous attempt failed validation. Use the tool exactly.'
+      ? REPLAY_SIMULATOR_SYSTEM + '\n\nCRITICAL: Return ONLY valid JSON via the tool. Use the tool exactly.'
       : REPLAY_SIMULATOR_SYSTEM;
 
     const response = await anthropic.messages.create({
@@ -76,11 +74,10 @@ Simulate how ${input.customerFirstName} would respond to each touchpoint. Be rea
     });
 
     const block = response.content.find(b => b.type === 'tool_use');
-    if (!block || block.type !== 'tool_use') {
-      throw new Error('Replay simulator: no tool_use block in response');
-    }
+    if (!block || block.type !== 'tool_use') throw new Error('Replay simulator: no tool_use block in response');
 
-    return ReplaySimulationSchema.parse(block.input);
+    const inp = unwrapArrayFields(block.input as Record<string, unknown>, ['simulatedResponses']);
+    return ReplaySimulationSchema.parse(inp);
   };
 
   try {

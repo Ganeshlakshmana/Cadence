@@ -1,6 +1,7 @@
 import { anthropic, SONNET } from './client';
 import { ManagerOnePagerSchema, type ManagerOnePager, type Strategy } from './schemas';
 import { MANAGER_ONE_PAGER_SYSTEM } from './prompts';
+import { unwrapArrayFields } from './toolInput';
 
 const MANAGER_ONE_PAGER_TOOL = {
   name: 'generate_manager_one_pager',
@@ -83,11 +84,10 @@ Generate the manager one-pager. dealHeader should be: "${input.customerFirstName
     });
 
     const block = response.content.find(b => b.type === 'tool_use');
-    if (!block || block.type !== 'tool_use') {
-      throw new Error('Manager one-pager: no tool_use block in response');
-    }
+    if (!block || block.type !== 'tool_use') throw new Error('Manager one-pager: no tool_use block in response');
 
-    return ManagerOnePagerSchema.parse(block.input);
+    const inp = unwrapArrayFields(block.input as Record<string, unknown>, ['risksAndMitigations']);
+    return ManagerOnePagerSchema.parse(inp);
   };
 
   try {

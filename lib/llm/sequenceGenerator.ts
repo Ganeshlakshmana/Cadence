@@ -1,42 +1,36 @@
 import { anthropic, SONNET } from './client';
 import { StrategySchema, type Strategy } from './schemas';
 import { SEQUENCE_GENERATION_SYSTEM, sequenceGenerationUserPrompt } from './prompts';
+import { unwrapArrayFields } from './toolInput';
 
 const VALID_CHANNELS = ['email', 'sms', 'whatsapp_text', 'whatsapp_voice', 'call', 'video', 'microsite', 'postcard', 'linkedin', 'in_person'];
 const VALID_TONES = ['reassuring', 'data_driven', 'impact', 'objection_handling', 'urgency', 'social_proof'];
 
 const STRATEGY_TOOL = {
   name: 'generate_strategy',
-  description: 'Return the complete multi-touch sales sequence strategy as structured data.',
+  description: 'Return the complete multi-touch sales sequence strategy.',
   input_schema: {
     type: 'object' as const,
     properties: {
-      rationaleSummary: {
-        type: 'string',
-        description: '2-3 sentences explaining the overall sequence arc to the installer.',
-      },
+      rationaleSummary: { type: 'string', description: '2-3 sentences explaining the overall sequence arc to the installer.' },
       marketContextApplied: { type: 'string' },
       touches: {
         type: 'array',
         minItems: 5,
         maxItems: 9,
+        description: 'Return as a real JSON array of objects — NOT as a JSON-encoded string.',
         items: {
           type: 'object',
           properties: {
             sequenceIndex: { type: 'integer' },
             dayOffset: { type: 'integer', minimum: 0, maximum: 30 },
-            channel: { type: 'string', enum: [...VALID_CHANNELS] },
-            tone: { type: 'string', enum: [...VALID_TONES] },
+            channel: { type: 'string', enum: VALID_CHANNELS },
+            tone: { type: 'string', enum: VALID_TONES },
             objective: { type: 'string', maxLength: 80 },
-            reasoning: {
-              type: 'string',
-              minLength: 10,
-              maxLength: 300,
-              description: 'Complete sentence citing specific archetype % (e.g. "40% family") AND specific quote number (e.g. "€130/month"). Max 300 chars.',
-            },
+            reasoning: { type: 'string', minLength: 10, maxLength: 300, description: 'Complete sentence citing specific archetype % AND specific quote number. Max 300 chars.' },
             contentSubject: { type: ['string', 'null'] },
-            contentBody: { type: 'string' },
-            contentVariantB: { type: ['string', 'null'] },
+            contentBody: { type: 'string', description: 'Customer-language message body. Do NOT use double-quote characters (") inside this value — use „..." or single quotes instead.' },
+            contentVariantB: { type: ['string', 'null'], description: 'A/B variant body or null. Do NOT use double-quote characters (") inside this value.' },
             abTestActive: { type: 'boolean' },
           },
           required: ['sequenceIndex', 'dayOffset', 'channel', 'tone', 'objective', 'reasoning', 'contentSubject', 'contentBody', 'contentVariantB', 'abTestActive'],
@@ -95,11 +89,10 @@ export async function generateSequence(input: SequenceGeneratorInput): Promise<S
     });
 
     const block = response.content.find(b => b.type === 'tool_use');
-    if (!block || block.type !== 'tool_use') {
-      throw new Error('Sequence generator: no tool_use block in response');
-    }
+    if (!block || block.type !== 'tool_use') throw new Error('Sequence generator: no tool_use block in response');
 
-    return StrategySchema.parse(block.input);
+    const inp = unwrapArrayFields(block.input as Record<string, unknown>, ['touches']);
+    return StrategySchema.parse(inp);
   };
 
   try {
