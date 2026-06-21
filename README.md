@@ -1,6 +1,6 @@
 # Cadence — AI Solar Sales Platform
 
-> Built by **Reonic** · Powered by OpenAI, ElevenLabs, and Twilio
+> Built for  **Reonic** · Powered by OpenAI, ElevenLabs, and Twilio
 
 Cadence is an AI-first CRM and outreach platform for residential solar installers. It generates personalised multi-touch follow-up sequences, sends voice notes and WhatsApp messages, and coaches installers through every deal — from lead to close.
 
