@@ -100,6 +100,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
           contentSubject: t.contentSubject,
           contentBody:    t.contentBody,
           abTestActive:   t.abTestActive,
+          audioUrl:       t.audioUrl,
         })),
       } : null,
     });

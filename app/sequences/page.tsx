@@ -49,6 +49,7 @@ interface Touch {
   contentSubject: string | null;
   contentBody: string;
   abTestActive: boolean;
+  audioUrl?: string | null;
 }
 
 interface StrategyData {
@@ -107,31 +108,68 @@ function archetypeGradientStyle(weights: { family: number; investor: number; env
 
 // ── Touch card ────────────────────────────────────────────────────────────────
 
-function TouchCard({ touch, index }: { touch: Touch; index: number }) {
+function TouchCard({ touch, index, onAudioReady }: { touch: Touch; index: number; onAudioReady?: (touchId: string, audioUrl: string) => void }) {
   const [expanded, setExpanded] = useState(false);
+  const [audioUrl, setAudioUrl] = useState<string | null>(touch.audioUrl ?? null);
+  const [generatingAudio, setGeneratingAudio] = useState(false);
   const toneColor = TONE_COLOR[touch.tone] ?? 'var(--color-primary-container)';
   const icon = CHANNEL_ICON[touch.channel] ?? 'notifications';
 
+  useEffect(() => {
+    if (touch.channel !== 'whatsapp_voice' || audioUrl || generatingAudio || !touch.id) return;
+    setGeneratingAudio(true);
+    fetch(`/api/touch/${touch.id}/audio`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.audioUrl) {
+          setAudioUrl(data.audioUrl);
+          onAudioReady?.(touch.id!, data.audioUrl);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setGeneratingAudio(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [touch.id]);
+
   return (
     <div
-      className="bg-white rounded-xl p-4 relative overflow-hidden cursor-pointer transition-all hover:shadow-md active:scale-95"
+      className="bg-white rounded-xl p-4 relative overflow-hidden transition-all hover:shadow-md"
       style={{ border: '1px solid #E8E8E3' }}
-      onClick={() => setExpanded(e => !e)}
     >
       {/* Tone bar */}
       <div className="absolute top-0 left-0 right-0 h-[3px]" style={{ backgroundColor: toneColor }} />
 
-      <div className="flex justify-between items-start mb-4">
-        <span className="font-label-caps text-outline" style={{ fontSize: 10 }}>DAY {String(touch.dayOffset).padStart(2, '0')}</span>
-        <span className="material-symbols-outlined" style={{ color: toneColor, fontSize: 18 }}>{icon}</span>
+      <div
+        className="cursor-pointer active:scale-95"
+        onClick={() => setExpanded(e => !e)}
+      >
+        <div className="flex justify-between items-start mb-4">
+          <span className="font-label-caps text-outline" style={{ fontSize: 10 }}>DAY {String(touch.dayOffset).padStart(2, '0')}</span>
+          <span className="material-symbols-outlined" style={{ color: toneColor, fontSize: 18 }}>{icon}</span>
+        </div>
+
+        <h4 className="font-body-strong mb-1 text-on-surface" style={{ fontSize: 13 }}>
+          {touch.objective || `Touch ${index + 1}`}
+        </h4>
+        <p className="text-on-surface-variant leading-tight" style={{ fontSize: 11 }}>
+          {touch.tone.replace(/_/g, ' ')} · {touch.channel.replace(/_/g, ' ')}
+        </p>
       </div>
 
-      <h4 className="font-body-strong mb-1 text-on-surface" style={{ fontSize: 13 }}>
-        {touch.objective || `Touch ${index + 1}`}
-      </h4>
-      <p className="text-on-surface-variant leading-tight" style={{ fontSize: 11 }}>
-        {touch.tone.replace(/_/g, ' ')} · {touch.channel.replace(/_/g, ' ')}
-      </p>
+      {/* Audio player for voice touches */}
+      {touch.channel === 'whatsapp_voice' && (
+        <div className="mt-3">
+          {audioUrl ? (
+            <audio controls src={audioUrl} className="w-full" style={{ height: 32 }} />
+          ) : generatingAudio ? (
+            <p className="font-label-caps text-outline" style={{ fontSize: 9 }}>GENERATING AUDIO…</p>
+          ) : null}
+        </div>
+      )}
 
       {/* Expanded reasoning */}
       {expanded && (

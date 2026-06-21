@@ -4,10 +4,8 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 
 const NAV_ITEMS = [
-  { href: '/pipeline', label: 'Pipeline',     icon: 'lan',         key: 'pipeline'     },
-  { href: '/sequences', label: 'Sequences',   icon: 'account_tree', key: 'sequences'   },
-  { href: '/experiments', label: 'Experiments', icon: 'experiment', key: 'experiments' },
-  { href: '/audit',     label: 'Audit',       icon: 'history_edu', key: 'audit'        },
+  { href: '/pipeline', label: 'Pipeline',   icon: 'lan',          key: 'pipeline'  },
+  { href: '/sequences', label: 'Sequences', icon: 'account_tree', key: 'sequences' },
 ];
 
 export default function SideNav() {
