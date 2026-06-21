@@ -1,74 +1,69 @@
-import { db } from '@/db/client';
-import { auditLog } from '@/db/schema';
+import { db, auditLog } from '@/db/schema';
 
-export type ActorType = 'installer_user' | 'system' | 'customer';
+const now = () => Math.floor(Date.now() / 1000);
 
 export interface AuditEntry {
-  actorType: ActorType;
-  actorId?: string;
+  actor: string;       // e.g. 'system', 'installer_user', customer id
   action: string;
-  targetCustomerId?: string;
+  entityType?: string; // e.g. 'customer', 'sequence', 'touchpoint'
+  entityId?: string;
   metadata?: Record<string, unknown>;
 }
 
 export async function writeAuditLog(entry: AuditEntry): Promise<void> {
   await db.insert(auditLog).values({
-    actorType: entry.actorType,
-    actorId: entry.actorId ?? null,
-    action: entry.action,
-    targetCustomerId: entry.targetCustomerId ?? null,
-    metadata: entry.metadata ? JSON.stringify(entry.metadata) : null,
-    occurredAt: new Date(),
+    actor:      entry.actor,
+    action:     entry.action,
+    entityType: entry.entityType ?? null,
+    entityId:   entry.entityId ?? null,
+    metadata:   entry.metadata ? JSON.stringify(entry.metadata) : null,
+    createdAt:  now(),
   });
 }
 
-// Convenience wrappers for common audit events
 export const audit = {
-  strategyGenerated: (customerId: string, strategyId: string, model: string) =>
+  sequenceGenerated: (customerId: string, sequenceId: string, model: string) =>
     writeAuditLog({
-      actorType: 'system',
-      action: 'strategy.generated',
-      targetCustomerId: customerId,
-      metadata: { strategyId, model },
+      actor:      'system',
+      action:     'sequence.generated',
+      entityType: 'sequence',
+      entityId:   sequenceId,
+      metadata:   { customerId, model },
     }),
 
-  strategyRegenerated: (customerId: string, strategyId: string, instruction: string) =>
+  sequenceRegenerated: (customerId: string, sequenceId: string, instruction: string) =>
     writeAuditLog({
-      actorType: 'installer_user',
-      action: 'strategy.regenerated',
-      targetCustomerId: customerId,
-      metadata: { strategyId, instruction: instruction.slice(0, 200) },
+      actor:      'installer_user',
+      action:     'sequence.regenerated',
+      entityType: 'sequence',
+      entityId:   sequenceId,
+      metadata:   { customerId, instruction: instruction.slice(0, 200) },
     }),
 
-  replaySimulated: (customerId: string, strategyId: string) =>
+  replaySimulated: (customerId: string, sequenceId: string) =>
     writeAuditLog({
-      actorType: 'system',
-      action: 'replay.simulated',
-      targetCustomerId: customerId,
-      metadata: { strategyId },
+      actor:      'system',
+      action:     'replay.simulated',
+      entityType: 'sequence',
+      entityId:   sequenceId,
+      metadata:   { customerId },
     }),
 
   voiceGenerated: (customerId: string, touchId: string, audioUrl: string) =>
     writeAuditLog({
-      actorType: 'system',
-      action: 'voice.generated',
-      targetCustomerId: customerId,
-      metadata: { touchId, audioUrl },
+      actor:      'system',
+      action:     'voice.generated',
+      entityType: 'touchpoint',
+      entityId:   touchId,
+      metadata:   { customerId, audioUrl },
     }),
 
-  personaInferred: (customerId: string, confidence: number) =>
+  managerPdfExported: (customerId: string, sequenceId: string) =>
     writeAuditLog({
-      actorType: 'system',
-      action: 'persona.inferred',
-      targetCustomerId: customerId,
-      metadata: { confidence },
-    }),
-
-  managerPdfExported: (customerId: string, strategyId: string) =>
-    writeAuditLog({
-      actorType: 'installer_user',
-      action: 'export.manager_pdf',
-      targetCustomerId: customerId,
-      metadata: { strategyId },
+      actor:      'installer_user',
+      action:     'export.manager_pdf',
+      entityType: 'sequence',
+      entityId:   sequenceId,
+      metadata:   { customerId },
     }),
 };

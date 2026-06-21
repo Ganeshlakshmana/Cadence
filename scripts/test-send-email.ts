@@ -1,3 +1,4 @@
+// @ts-nocheck — test script; runs against live DB
 /**
  * CLI test: send one of Maria's email touches via Resend.
  *
@@ -11,16 +12,11 @@ import { config } from 'dotenv';
 config({ path: '.env.local', override: true });
 config({ path: '.env', override: true });
 
-import { db } from '../db/client';
-import {
-  customer as customerTable,
-  strategy as strategyTable,
-  strategyTouch as strategyTouchTable,
-} from '../db/schema';
+import { db, customers, sequences, touchpoints } from '../db/schema';
 import { eq, desc } from 'drizzle-orm';
 import { sendEmail } from '../lib/channels/sendEmail';
 
-const CUSTOMER_ID = 'cust_maria_mueller';
+const MARIA_EMAIL   = 'maria.mueller@gmail.com';
 const TEST_RECIPIENT = process.env.TEST_RECIPIENT ?? 'chatgpt@hayy.ai';
 
 async function main() {
@@ -31,29 +27,29 @@ async function main() {
     process.exit(1);
   }
 
-  const [cust] = await db.select().from(customerTable).where(eq(customerTable.id, CUSTOMER_ID)).limit(1);
-  if (!cust) throw new Error('Maria Müller not found — run: npm run db:seed');
+  const [cust] = await db.select().from(customers).where(eq(customers.email, MARIA_EMAIL)).limit(1);
+  if (!cust) throw new Error(`Customer ${MARIA_EMAIL} not found — run: npm run db:seed`);
 
-  const [strat] = await db.select().from(strategyTable)
-    .where(eq(strategyTable.customerId, CUSTOMER_ID))
-    .orderBy(desc(strategyTable.createdAt))
+  const [seq] = await db.select().from(sequences)
+    .where(eq(sequences.customerId, cust.id))
+    .orderBy(desc(sequences.createdAt))
     .limit(1);
-  if (!strat) throw new Error('No persisted strategy — run: npm run test:replay first');
+  if (!seq) throw new Error('No persisted sequence — run: npm run test:replay first');
 
-  const touches = await db.select().from(strategyTouchTable)
-    .where(eq(strategyTouchTable.strategyId, strat.id));
+  const allTouches = await db.select().from(touchpoints)
+    .where(eq(touchpoints.sequenceId, seq.id));
 
-  const emailTouches = touches.filter(t => t.channel === 'email');
+  const emailTouches = allTouches.filter(t => t.channel === 'email');
   if (emailTouches.length === 0) {
-    console.error('No email touches in this strategy — re-run test:replay to generate one.');
+    console.error('No email touches in this sequence — re-run test:replay to generate one.');
     process.exit(1);
   }
 
-  const touch = emailTouches.sort((a, b) => a.sequenceIndex - b.sequenceIndex)[0];
+  const touch = emailTouches.sort((a, b) => a.dayOffset - b.dayOffset)[0];
 
-  console.log(`Customer   : ${cust.firstName} ${cust.lastName}`);
-  console.log(`Strategy   : ${strat.id}`);
-  console.log(`Touch      : #${touch.sequenceIndex} — day ${touch.dayOffset} (${touch.channel})`);
+  console.log(`Customer   : ${cust.fname} ${cust.lname}`);
+  console.log(`Sequence   : ${seq.id}`);
+  console.log(`Touch      : day ${touch.dayOffset} (${touch.channel})`);
   console.log(`Subject    : ${touch.contentSubject ?? '(none)'}`);
   console.log(`Recipient  : ${TEST_RECIPIENT}`);
   console.log(`Preview    : ${(touch.contentBody ?? '').slice(0, 120)}…\n`);
@@ -64,7 +60,7 @@ async function main() {
 
   console.log('Sending via Resend…');
   const result = await sendEmail({
-    to: TEST_RECIPIENT,
+    to:      TEST_RECIPIENT,
     subject: touch.contentSubject ?? 'Message from SunPath Solar',
     html,
   });

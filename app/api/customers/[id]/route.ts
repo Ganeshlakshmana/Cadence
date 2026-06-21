@@ -1,111 +1,130 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/db/client';
-import { customer, customerProfile, quote, strategy, strategyTouch } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { db, customers, sequences, touchpoints, auditLog } from '@/db/schema';
+import { eq, desc } from 'drizzle-orm';
 
-/**
- * GET /api/customers/[id]
- * Returns a single customer with profile, quote, and latest strategy + touches.
- */
-export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+const now = () => Math.floor(Date.now() / 1000);
+
+type Ctx = { params: Promise<{ id: string }> };
+
+// GET /api/customers/[id] — full customer + all sequences + touchpoints under latest sequence
+export async function GET(_req: NextRequest, { params }: Ctx) {
   try {
     const { id } = await params;
 
-    const [cust] = await db.select().from(customer).where(eq(customer.id, id)).limit(1);
-    if (!cust) return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
+    const [cust] = await db.select().from(customers).where(eq(customers.id, id)).limit(1);
+    if (!cust) return NextResponse.json({ data: null, error: 'Customer not found' }, { status: 404 });
 
-    const [profile] = await db
+    const allSequences = await db
       .select()
-      .from(customerProfile)
-      .where(eq(customerProfile.customerId, id))
-      .limit(1);
+      .from(sequences)
+      .where(eq(sequences.customerId, id))
+      .orderBy(desc(sequences.createdAt));
 
-    const [latestQuote] = await db
-      .select()
-      .from(quote)
-      .where(eq(quote.customerId, id))
-      .limit(1);
+    const latestSeq = allSequences[0] ?? null;
 
-    const [latestStrategy] = await db
-      .select()
-      .from(strategy)
-      .where(eq(strategy.customerId, id))
-      .limit(1);
-
-    let touches: typeof strategyTouch.$inferSelect[] = [];
-    if (latestStrategy) {
-      touches = await db
+    let latestTouchpoints: typeof touchpoints.$inferSelect[] = [];
+    if (latestSeq) {
+      latestTouchpoints = await db
         .select()
-        .from(strategyTouch)
-        .where(eq(strategyTouch.strategyId, latestStrategy.id))
-        .orderBy(strategyTouch.sequenceIndex);
+        .from(touchpoints)
+        .where(eq(touchpoints.sequenceId, latestSeq.id));
     }
 
     return NextResponse.json({
-      customer: {
-        id:              cust.id,
-        firstName:       cust.firstName,
-        lastName:        cust.lastName,
-        city:            cust.city,
-        countryCode:     cust.countryCode,
-        latitude:        cust.latitude,
-        longitude:       cust.longitude,
-        irradiance:      cust.solarIrradianceKwhM2Year,
-        preferredChannel: cust.preferredChannel,
-        preferredLanguage: cust.preferredLanguage,
-        formalityRegister: cust.formalityRegister,
-        consentDataProcessing: cust.consentDataProcessing,
+      data: {
+        ...cust,
+        sequences: allSequences,
+        latestSequence: latestSeq
+          ? { ...latestSeq, touchpoints: latestTouchpoints }
+          : null,
       },
-      profile: profile ? {
-        archetypeFamily:          profile.archetypeFamily,
-        archetypeInvestor:        profile.archetypeInvestor,
-        archetypeEnvironmentalist: profile.archetypeEnvironmentalist,
-        archetypeSkeptic:         profile.archetypeSkeptic,
-        statedMotivations:        profile.statedMotivations,
-        statedObjections:         profile.statedObjections,
-        customerVerbatimPhrases:  profile.customerVerbatimPhrases,
-        decisionTimeline:         profile.decisionTimeline,
-        inferenceConfidence:      profile.inferenceConfidence,
-      } : null,
-      quote: latestQuote ? {
-        id:                     latestQuote.id,
-        systemSizeKw:           latestQuote.systemSizeKw,
-        panelCount:             latestQuote.panelCount,
-        batteryIncluded:        latestQuote.batteryIncluded,
-        batteryKwh:             latestQuote.batteryKwh,
-        totalPrice:             latestQuote.totalPrice,
-        currency:               latestQuote.currency,
-        financingType:          latestQuote.financingType,
-        estimatedAnnualSavings: latestQuote.estimatedAnnualSavings,
-        monthlyEquivalentSavings: latestQuote.monthlyEquivalentSavings,
-        paybackPeriodYears:     latestQuote.paybackPeriodYears,
-        annualRoiPct:           latestQuote.annualRoiPct,
-        co2OffsetTons25yr:      latestQuote.co2OffsetTons25yr,
-      } : null,
-      strategy: latestStrategy ? {
-        id:                latestStrategy.id,
-        status:            latestStrategy.status,
-        ghostRiskScore:    latestStrategy.ghostRiskScore,
-        ghostRiskSignals:  latestStrategy.ghostRiskSignals,
-        closeReadinessScore: latestStrategy.closeReadinessScore,
-        rationaleSummary:  latestStrategy.rationaleSummary,
-        touches: touches.map(t => ({
-          id:             t.id,
-          sequenceIndex:  t.sequenceIndex,
-          dayOffset:      t.dayOffset,
-          channel:        t.channel,
-          tone:           t.tone,
-          objective:      t.objective,
-          reasoning:      t.reasoning,
-          contentSubject: t.contentSubject,
-          contentBody:    t.contentBody,
-          abTestActive:   t.abTestActive,
-          audioUrl:       t.audioUrl,
-        })),
-      } : null,
+      error: null,
     });
   } catch (err) {
-    console.error('GET /api/customers/[id] error:', err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    console.error('GET /api/customers/[id]', err);
+    return NextResponse.json({ data: null, error: String(err) }, { status: 500 });
+  }
+}
+
+// PATCH /api/customers/[id] — partial update of any field except id / created_at
+export async function PATCH(req: NextRequest, { params }: Ctx) {
+  try {
+    const { id } = await params;
+
+    const [existing] = await db.select().from(customers).where(eq(customers.id, id)).limit(1);
+    if (!existing) return NextResponse.json({ data: null, error: 'Customer not found' }, { status: 404 });
+
+    const body = await req.json();
+
+    // Map accepted snake_case body keys → Drizzle camelCase column names
+    const FIELD_MAP: Record<string, string> = {
+      fname:                     'fname',
+      lname:                     'lname',
+      email:                     'email',
+      phone:                     'phone',
+      whatsapp_enabled:          'whatsappEnabled',
+      address:                   'address',
+      postal_code:               'postalCode',
+      price_quote:               'priceQuote',
+      archetype_family:          'archetypeFamily',
+      archetype_investor:        'archetypeInvestor',
+      archetype_environmentalist:'archetypeEnvironmentalist',
+      archetype_skeptic:         'archetypeSkeptic',
+      about:                     'about',
+      status:                    'status',
+      language:                  'language',
+      consent_data_processing:   'consentDataProcessing',
+      consent_marketing:         'consentMarketing',
+      consent_voice_cloning:     'consentVoiceCloning',
+      product_id:                'productId',
+      product_type:              'productType',
+    };
+
+    const updates: Record<string, unknown> = { updatedAt: now() };
+    for (const [key, val] of Object.entries(body)) {
+      const col = FIELD_MAP[key];
+      if (col) updates[col] = val;
+    }
+
+    const [updated] = await db
+      .update(customers)
+      .set(updates)
+      .where(eq(customers.id, id))
+      .returning();
+
+    return NextResponse.json({ data: updated, error: null });
+  } catch (err) {
+    const msg = String(err);
+    if (msg.includes('UNIQUE constraint')) {
+      return NextResponse.json({ data: null, error: 'Email already taken by another customer' }, { status: 409 });
+    }
+    console.error('PATCH /api/customers/[id]', err);
+    return NextResponse.json({ data: null, error: msg }, { status: 500 });
+  }
+}
+
+// DELETE /api/customers/[id] — delete customer; cascade handles sequences/touchpoints/etc.
+export async function DELETE(_req: NextRequest, { params }: Ctx) {
+  try {
+    const { id } = await params;
+
+    const [existing] = await db.select().from(customers).where(eq(customers.id, id)).limit(1);
+    if (!existing) return NextResponse.json({ data: null, error: 'Customer not found' }, { status: 404 });
+
+    await db.insert(auditLog).values({
+      actor:      'system',
+      action:     'customer.deleted',
+      entityType: 'customer',
+      entityId:   id,
+      metadata:   JSON.stringify({ fname: existing.fname, lname: existing.lname, email: existing.email }),
+      createdAt:  now(),
+    });
+
+    await db.delete(customers).where(eq(customers.id, id));
+
+    return new NextResponse(null, { status: 204 });
+  } catch (err) {
+    console.error('DELETE /api/customers/[id]', err);
+    return NextResponse.json({ data: null, error: String(err) }, { status: 500 });
   }
 }

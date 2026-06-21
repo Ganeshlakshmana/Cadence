@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/db/client';
-import { strategyTouch, strategy } from '@/db/schema';
+import { db, touchpoints, sequences } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { sendEmail } from '@/lib/channels/sendEmail';
 import { writeAuditLog } from '@/lib/compliance/auditLog';
@@ -18,7 +17,7 @@ export async function POST(
     const { id: touchId } = await params;
     const body = SendEmailBody.parse(await req.json());
 
-    const [touch] = await db.select().from(strategyTouch).where(eq(strategyTouch.id, touchId)).limit(1);
+    const [touch] = await db.select().from(touchpoints).where(eq(touchpoints.id, touchId)).limit(1);
     if (!touch) return NextResponse.json({ error: 'Touch not found' }, { status: 404 });
 
     if (touch.channel !== 'email') {
@@ -29,30 +28,30 @@ export async function POST(
       return NextResponse.json({ error: 'Touch has no content body' }, { status: 400 });
     }
 
-    const [strat] = await db.select().from(strategy).where(eq(strategy.id, touch.strategyId)).limit(1);
+    const [seq] = await db.select().from(sequences).where(eq(sequences.id, touch.sequenceId)).limit(1);
 
     const html = `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;line-height:1.6">${
       touch.contentBody.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>')
     }</div>`;
 
     const result = await sendEmail({
-      to: body.testRecipient,
+      to:      body.testRecipient,
       subject: touch.contentSubject ?? 'Message from SunPath Solar',
-      html: `<p>${html}</p>`,
+      html:    `<p>${html}</p>`,
     });
 
     await writeAuditLog({
-      actorType: 'installer_user',
-      action: 'email.sent',
-      targetCustomerId: strat?.customerId,
+      actor:      'installer_user',
+      action:     'email.sent',
+      entityType: 'touchpoint',
+      entityId:   touchId,
       metadata: {
-        touchId,
-        sequenceIndex: touch.sequenceIndex,
-        to: body.testRecipient,
-        subject: touch.contentSubject,
-        providerId: result.providerId,
-        status: result.status,
-        error: result.error,
+        customerId:  seq?.customerId,
+        to:          body.testRecipient,
+        subject:     touch.contentSubject,
+        providerId:  result.providerId,
+        status:      result.status,
+        error:       result.error,
       },
     });
 
@@ -63,9 +62,9 @@ export async function POST(
     return NextResponse.json({
       touchId,
       providerId: result.providerId,
-      status: 'sent',
-      to: body.testRecipient,
-      subject: touch.contentSubject,
+      status:     'sent',
+      to:         body.testRecipient,
+      subject:    touch.contentSubject,
     });
   } catch (err) {
     console.error('[send-email] error:', err);

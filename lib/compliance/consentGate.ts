@@ -1,5 +1,4 @@
-import { db } from '@/db/client';
-import { customer } from '@/db/schema';
+import { db, customers } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 
 export type ConsentType = 'dataProcessing' | 'marketing' | 'voiceCloning';
@@ -10,15 +9,14 @@ export interface ConsentCheckResult {
   reason: string;
 }
 
-// Maps each action type to required consents
 const CONSENT_REQUIREMENTS: Record<string, ConsentType[]> = {
-  'persona_inference': ['dataProcessing'],
+  'persona_inference':  ['dataProcessing'],
   'sequence_generation': ['dataProcessing', 'marketing'],
-  'voice_generation': ['dataProcessing', 'marketing'],     // stock TTS — no voice cloning required
-  'voice_cloning': ['dataProcessing', 'marketing', 'voiceCloning'], // actual voice cloning of installer
-  'replay_simulation': ['dataProcessing'],
-  'manager_one_pager': ['dataProcessing'],
-  'audit_log_read': ['dataProcessing'],
+  'voice_generation':   ['dataProcessing', 'marketing'],
+  'voice_cloning':      ['dataProcessing', 'marketing', 'voiceCloning'],
+  'replay_simulation':  ['dataProcessing'],
+  'manager_one_pager':  ['dataProcessing'],
+  'audit_log_read':     ['dataProcessing'],
 };
 
 export async function checkConsent(
@@ -29,8 +27,8 @@ export async function checkConsent(
 
   const [cust] = await db
     .select()
-    .from(customer)
-    .where(eq(customer.id, customerId))
+    .from(customers)
+    .where(eq(customers.id, customerId))
     .limit(1);
 
   if (!cust) {

@@ -1,122 +1,114 @@
-import { NextResponse } from 'next/server';
-import { db } from '@/db/client';
-import { customer, customerProfile, quote, strategy } from '@/db/schema';
-import { eq } from 'drizzle-orm';
-import { calculateGhostRisk } from '@/lib/scoring/ghostRisk';
-import { calculateCloseReadiness } from '@/lib/scoring/closeReadiness';
+import { NextRequest, NextResponse } from 'next/server';
+import { db, customers, sequences, auditLog } from '@/db/schema';
+import { desc } from 'drizzle-orm';
 
-/**
- * GET /api/customers
- * Read-only. Returns all customers with their profile, latest quote,
- * computed ghost risk and close readiness, and latest strategy stage.
- */
+const now = () => Math.floor(Date.now() / 1000);
+
+// GET /api/customers — list all customers with archetype blend + latest sequence status
 export async function GET() {
   try {
-    const customers = await db.select().from(customer);
+    const rows = await db.select().from(customers).orderBy(desc(customers.createdAt));
 
-    const enriched = await Promise.all(customers.map(async (cust) => {
-      // Load profile
-      const [profile] = await db
-        .select()
-        .from(customerProfile)
-        .where(eq(customerProfile.customerId, cust.id))
-        .limit(1);
-
-      // Load latest quote
-      const [latestQuote] = await db
-        .select()
-        .from(quote)
-        .where(eq(quote.customerId, cust.id))
-        .limit(1);
-
-      // Load latest strategy (to determine stage)
-      const [latestStrategy] = await db
-        .select()
-        .from(strategy)
-        .where(eq(strategy.customerId, cust.id))
-        .limit(1);
-
-      // Compute scores using our scoring libs
-      const decisionTimeline = profile?.decisionTimeline ?? 'exploring';
-      const archetypeSkeptic = profile?.archetypeSkeptic ?? 0;
-      const archetypeInvestor = profile?.archetypeInvestor ?? 0;
-      const competitorMentioned = profile?.competitorMentioned ?? false;
-      const topObjections = (profile?.statedObjections as string[] | null) ?? [];
-      const statedMotivations = (profile?.statedMotivations as string[] | null) ?? [];
-
-      const ghostRisk = calculateGhostRisk({
-        decisionTimeline,
-        archetypeSkeptic,
-        competitorMentioned,
-        daysSinceLastTouch: 3,
-        touchesWithNoResponse: 0,
-        totalTouches: 1,
-        hasStatedObjection: topObjections.length > 0,
-        objectionAddressed: false,
-      });
-
-      const closeReadiness = calculateCloseReadiness({
-        decisionTimeline,
-        archetypeInvestor,
-        inferenceConfidence: profile?.inferenceConfidence ?? 0.7,
-        competitorMentioned,
-        hasPositiveResponse: false,
-        dayOffset: 0,
-        micrositeVisited: false,
-        roiFramingPreference: 'monthly_savings',
-        statedMotivationsCount: statedMotivations.length,
-        topObjectionsCount: topObjections.length,
-      });
-
-      // Derive pipeline stage
-      let stage = 'Discovery';
-      if (latestStrategy) {
-        if (latestStrategy.status === 'replay_simulated') stage = 'Contracting';
-        else if (latestStrategy.status === 'active') stage = 'Validation';
-        else stage = 'Proposal';
+    // Fetch all sequences once, pick latest per customer in JS
+    const allSeqs = await db.select().from(sequences);
+    const latestSeq = new Map<string, typeof allSeqs[0]>();
+    for (const s of allSeqs) {
+      const cur = latestSeq.get(s.customerId);
+      if (!cur || (s.createdAt ?? 0) > (cur.createdAt ?? 0)) {
+        latestSeq.set(s.customerId, s);
       }
+    }
 
-      // Archetype weights for the pipeline mix bar
-      const archetypeWeights = {
-        family:          profile?.archetypeFamily ?? 0,
-        investor:        profile?.archetypeInvestor ?? 0,
-        environmentalist: profile?.archetypeEnvironmentalist ?? 0,
-        skeptic:         profile?.archetypeSkeptic ?? 0,
-      };
-
+    const data = rows.map(c => {
+      const seq = latestSeq.get(c.id) ?? null;
       return {
-        id:            cust.id,
-        firstName:     cust.firstName,
-        lastName:      cust.lastName,
-        name:          `${cust.firstName} ${cust.lastName}`,
-        city:          cust.city,
-        countryCode:   cust.countryCode,
-        irradiance:    cust.solarIrradianceKwhM2Year,
-        quoteId:       latestQuote?.id ?? null,
-        totalPrice:    latestQuote?.totalPrice ?? 0,
-        currency:      latestQuote?.currency ?? 'EUR',
-        stage,
-        strategyId:    latestStrategy?.id ?? null,
-        ghostRisk: {
-          score:          ghostRisk.score,
-          pct:            Math.round(ghostRisk.score * 100),
-          recommendation: ghostRisk.recommendation,
+        id:              c.id,
+        fname:           c.fname,
+        lname:           c.lname,
+        email:           c.email,
+        phone:           c.phone,
+        whatsapp_enabled: c.whatsappEnabled,
+        price_quote:     c.priceQuote,
+        status:          c.status,
+        archetypes: {
+          family:           c.archetypeFamily,
+          investor:         c.archetypeInvestor,
+          environmentalist: c.archetypeEnvironmentalist,
+          skeptic:          c.archetypeSkeptic,
         },
-        closeReadiness: {
-          score:          closeReadiness.score,
-          pct:            Math.round(closeReadiness.score * 100),
-          recommendation: closeReadiness.recommendation,
-        },
-        archetypeWeights,
-        lastTouchDate: cust.createdAt
-          ? new Date(cust.createdAt).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })
-          : '—',
+        product_id:   c.productId,
+        product_type: c.productType,
+        latestSequence: seq ? {
+          id:                  seq.id,
+          status:              seq.status,
+          ghost_risk_score:    seq.ghostRiskScore,
+          close_readiness_score: seq.closeReadinessScore,
+          current_day:         seq.currentDay,
+          total_days:          seq.totalDays,
+        } : null,
       };
-    }));
+    });
 
-    return NextResponse.json({ customers: enriched });
+    return NextResponse.json({ data, error: null });
   } catch (err) {
-    console.error('GET /api/customers error:', err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    console.error('GET /api/customers', err);
+    return NextResponse.json({ data: null, error: String(err) }, { status: 500 });
+  }
+}
+
+// POST /api/customers — create a new customer
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json();
+
+    const missing = ['fname', 'lname', 'email'].filter(k => body[k] == null || body[k] === '');
+    if (missing.length) {
+      return NextResponse.json(
+        { data: null, error: `Missing required fields: ${missing.join(', ')}` },
+        { status: 400 },
+      );
+    }
+
+    const ts = now();
+    const [created] = await db.insert(customers).values({
+      fname:                     body.fname,
+      lname:                     body.lname,
+      email:                     body.email,
+      phone:                     body.phone ?? null,
+      whatsappEnabled:           body.whatsapp_enabled ?? 0,
+      address:                   body.address ?? null,
+      postalCode:                body.postal_code ?? null,
+      priceQuote:                body.price_quote,
+      archetypeFamily:           body.archetype_family ?? 0,
+      archetypeInvestor:         body.archetype_investor ?? 0,
+      archetypeEnvironmentalist: body.archetype_environmentalist ?? 0,
+      archetypeSkeptic:          body.archetype_skeptic ?? 0,
+      about:                     body.about ?? null,
+      status:                    body.status ?? 'lead',
+      language:                  body.language ?? 'en',
+      consentDataProcessing:     body.consent_data_processing ?? 0,
+      consentMarketing:          body.consent_marketing ?? 0,
+      consentVoiceCloning:       body.consent_voice_cloning ?? 0,
+      createdAt:                 ts,
+      updatedAt:                 ts,
+    }).returning();
+
+    await db.insert(auditLog).values({
+      actor:      'system',
+      action:     'customer.created',
+      entityType: 'customer',
+      entityId:   created.id,
+      metadata:   JSON.stringify({ fname: body.fname, lname: body.lname, email: body.email }),
+      createdAt:  ts,
+    });
+
+    return NextResponse.json({ data: created, error: null }, { status: 201 });
+  } catch (err) {
+    const msg = String(err);
+    if (msg.includes('UNIQUE constraint')) {
+      return NextResponse.json({ data: null, error: 'A customer with that email already exists' }, { status: 409 });
+    }
+    console.error('POST /api/customers', err);
+    return NextResponse.json({ data: null, error: msg }, { status: 500 });
   }
 }

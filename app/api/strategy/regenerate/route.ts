@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/db/client';
-import { customer, customerProfile, quote, strategy, strategyTouch } from '@/db/schema';
+import { db, customers, sequences, touchpoints, products } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { regenDelta } from '@/lib/llm/deltaRegen';
 import { checkConsent, assertConsent } from '@/lib/compliance/consentGate';
 import { audit } from '@/lib/compliance/auditLog';
 import { z } from 'zod';
 
+const now = () => Math.floor(Date.now() / 1000);
+
 const RegenerateBody = z.object({
-  strategyId: z.string(),
+  sequenceId:  z.string(),
   instruction: z.string().min(5),
 });
 
@@ -16,42 +17,45 @@ export async function POST(req: NextRequest) {
   try {
     const body = RegenerateBody.parse(await req.json());
 
-    const [strat] = await db.select().from(strategy).where(eq(strategy.id, body.strategyId)).limit(1);
-    if (!strat) return NextResponse.json({ error: 'Strategy not found' }, { status: 404 });
+    const [seq] = await db.select().from(sequences).where(eq(sequences.id, body.sequenceId)).limit(1);
+    if (!seq) return NextResponse.json({ error: 'Sequence not found' }, { status: 404 });
 
-    const consent = await checkConsent(strat.customerId, 'sequence_generation');
+    const consent = await checkConsent(seq.customerId, 'sequence_generation');
     assertConsent(consent);
 
-    // Load existing touches
     const existingTouches = await db
       .select()
-      .from(strategyTouch)
-      .where(eq(strategyTouch.strategyId, body.strategyId));
+      .from(touchpoints)
+      .where(eq(touchpoints.sequenceId, body.sequenceId));
 
-    // Build customer context block for the prompt
-    const [cust] = await db.select().from(customer).where(eq(customer.id, strat.customerId)).limit(1);
-    const [profile] = await db.select().from(customerProfile).where(eq(customerProfile.customerId, strat.customerId)).limit(1);
-    const [q] = await db.select().from(quote).where(eq(quote.id, strat.quoteId)).limit(1);
+    const [cust] = await db.select().from(customers).where(eq(customers.id, seq.customerId)).limit(1);
 
-    const customerContextBlock = `Customer: ${cust?.firstName} ${cust?.lastName}
-Country: ${cust?.countryCode}, Language: ${cust?.preferredLanguage} (${cust?.formalityRegister})
-Archetypes: Family ${profile?.archetypeFamily ?? 0}, Investor ${profile?.archetypeInvestor ?? 0}, Environmentalist ${profile?.archetypeEnvironmentalist ?? 0}, Skeptic ${profile?.archetypeSkeptic ?? 0}
-Quote: ${q?.currency ?? 'EUR'}${q?.totalPrice ?? 0} total, ${q?.currency ?? 'EUR'}${q?.monthlyEquivalentSavings ?? 0}/month savings, ${q?.paybackPeriodYears ?? 0}yr payback`;
+    let product: typeof products.$inferSelect | null = null;
+    if (cust?.productId) {
+      const [p] = await db.select().from(products).where(eq(products.id, cust.productId)).limit(1);
+      product = p ?? null;
+    }
+
+    const customerContextBlock = `Customer: ${cust?.fname ?? ''} ${cust?.lname ?? ''}
+Language: ${cust?.language ?? 'en'}
+Archetypes: Family ${cust?.archetypeFamily ?? 0}, Investor ${cust?.archetypeInvestor ?? 0}, Environmentalist ${cust?.archetypeEnvironmentalist ?? 0}, Skeptic ${cust?.archetypeSkeptic ?? 0}
+Quote: €${cust?.priceQuote ?? 0} total
+Product: ${product ? `${product.name} (${product.type}, ${product.warrantyYears}yr warranty)` : 'not assigned'}`;
 
     const currentStrategy = {
-      rationaleSummary: strat.rationaleSummary,
-      marketContextApplied: strat.marketContextApplied,
-      touches: existingTouches.map(t => ({
-        sequenceIndex: t.sequenceIndex,
-        dayOffset: t.dayOffset,
-        channel: t.channel,
-        tone: t.tone,
-        objective: t.objective,
-        reasoning: t.reasoning,
-        contentSubject: t.contentSubject,
-        contentBody: t.contentBody,
-        contentVariantB: t.contentVariantB,
-        abTestActive: t.abTestActive,
+      rationaleSummary:     seq.rationale ?? '',
+      marketContextApplied: '',
+      touches: existingTouches.map((t, i) => ({
+        sequenceIndex:   i + 1,
+        dayOffset:       t.dayOffset,
+        channel:         t.channel,
+        tone:            'professional' as const,
+        objective:       '',
+        reasoning:       t.reasoning ?? '',
+        contentSubject:  t.contentSubject ?? null,
+        contentBody:     t.contentBody ?? '',
+        contentVariantB: null,
+        abTestActive:    false,
       })),
     };
 
@@ -61,33 +65,30 @@ Quote: ${q?.currency ?? 'EUR'}${q?.totalPrice ?? 0} total, ${q?.currency ?? 'EUR
       customerContextBlock,
     });
 
-    // Replace all touches in DB
-    await db.delete(strategyTouch).where(eq(strategyTouch.strategyId, body.strategyId));
-    await db.insert(strategyTouch).values(
+    const ts = now();
+    await db.delete(touchpoints).where(eq(touchpoints.sequenceId, body.sequenceId));
+    await db.insert(touchpoints).values(
       delta.touches.map(t => ({
-        strategyId: body.strategyId,
-        sequenceIndex: t.sequenceIndex,
-        dayOffset: t.dayOffset,
-        channel: t.channel,
-        tone: t.tone,
-        objective: t.objective,
-        reasoning: t.reasoning,
-        contentSubject: t.contentSubject ?? null,
-        contentBody: t.contentBody,
-        contentVariantB: t.contentVariantB ?? null,
-        abTestActive: t.abTestActive,
-        abCampaignTag: t.abTestActive ? `day${t.dayOffset}_${t.channel}` : null,
-        status: 'pending',
+        sequenceId:      body.sequenceId,
+        customerId:      seq.customerId,
+        dayOffset:       t.dayOffset,
+        channel:         t.channel,
+        contentSubject:  t.contentSubject ?? null,
+        contentBody:     t.contentBody,
+        reasoning:       t.reasoning ?? null,
+        abVariant:       null,
+        status:          'pending' as const,
+        createdAt:       ts,
       }))
     );
 
-    await audit.strategyRegenerated(strat.customerId, body.strategyId, body.instruction);
+    await audit.sequenceRegenerated(seq.customerId, body.sequenceId, body.instruction);
 
     return NextResponse.json({
-      strategyId: body.strategyId,
+      sequenceId:       body.sequenceId,
       rationaleSummary: delta.rationaleSummary,
-      touches: delta.touches,
-      changes: delta.changes,
+      touches:          delta.touches,
+      changes:          delta.changes,
     });
   } catch (err) {
     console.error('Strategy regeneration error:', err);
