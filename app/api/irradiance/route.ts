@@ -1,15 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchIrradiance, getRelativeToNationalAverage } from '@/lib/solar/pvgis';
-import { db } from '@/db/client';
-import { customer } from '@/db/schema';
-import { eq } from 'drizzle-orm';
 
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const lat = searchParams.get('lat');
     const lon = searchParams.get('lon');
-    const customerId = searchParams.get('customerId');
     const countryCode = searchParams.get('countryCode') ?? 'DE';
 
     if (!lat || !lon) {
@@ -26,12 +22,8 @@ export async function GET(req: NextRequest) {
     const result = await fetchIrradiance(latNum, lonNum);
     const relative = getRelativeToNationalAverage(result.annualIrradianceKwhM2, countryCode);
 
-    // Cache on customer row if customerId provided
-    if (customerId) {
-      await db.update(customer)
-        .set({ solarIrradianceKwhM2Year: result.annualIrradianceKwhM2 })
-        .where(eq(customer.id, customerId));
-    }
+    // TODO: cache irradiance on customer row once a solar_data column or table is added
+    // (solarIrradianceKwhM2Year was removed from the customers table in the new schema)
 
     return NextResponse.json({
       lat: latNum,

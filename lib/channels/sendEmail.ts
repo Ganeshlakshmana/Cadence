@@ -1,4 +1,6 @@
 import { Resend } from 'resend';
+export { sendGmailEmail } from './gmail';
+export type { GmailSendResult } from './gmail';
 
 let _client: Resend | null = null;
 

@@ -4,63 +4,46 @@ import { useEffect, useState, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Suspense } from 'react';
 import SideNav from '@/app/components/SideNav';
+import CoachingPanel from '@/components/CoachingPanel';
+import { SendNowModal, type SendNowCustomer } from '@/components/SendNowModal';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface CustomerDetail {
   id: string;
-  firstName: string;
-  lastName: string;
-  city: string;
-  countryCode: string;
-  irradiance: number | null;
-}
-
-interface ProfileDetail {
+  fname: string;
+  lname: string;
+  email: string | null;
+  phone: string | null;
+  whatsappEnabled: boolean;
+  consentMarketing: boolean;
+  priceQuote: number | null;
   archetypeFamily: number;
   archetypeInvestor: number;
   archetypeEnvironmentalist: number;
   archetypeSkeptic: number;
-  decisionTimeline: string;
-  inferenceConfidence: number;
-  statedObjections: string[];
-  statedMotivations: string[];
-  customerVerbatimPhrases: string[];
-}
-
-interface QuoteDetail {
-  id: string;
-  totalPrice: number;
-  currency: string;
-  annualRoiPct: number;
-  paybackPeriodYears: number;
-  monthlyEquivalentSavings: number;
-  co2OffsetTons25yr: number;
+  about: string | null;
+  language: string | null;
 }
 
 interface Touch {
   id?: string;
-  sequenceIndex: number;
   dayOffset: number;
   channel: string;
-  tone: string;
-  objective: string;
-  reasoning: string;
+  reasoning: string | null;
   contentSubject: string | null;
-  contentBody: string;
-  abTestActive: boolean;
-  audioUrl?: string | null;
+  contentBody: string | null;
+  contentAudioUrl?: string | null;
+  contentImageUrl?: string | null;
+  abVariant?: string | null;
+  status?: string;
 }
 
 interface StrategyData {
   id?: string;
-  strategyId?: string;
-  ghostRisk?: { score: number; signals: string[]; recommendation: string };
-  closeReadiness?: { score: number; signals: string[]; recommendation: string };
   ghostRiskScore?: number;
   closeReadinessScore?: number;
-  rationaleSummary?: string;
-  personaWeights?: { family: number; investor: number; environmentalist: number; skeptic: number };
+  rationale?: string;
   touches: Touch[];
 }
 
@@ -70,14 +53,16 @@ function parseJsonArr(v: unknown): string[] {
   return [];
 }
 
-// ── Channel icons ─────────────────────────────────────────────────────────────
+// ── Channel icons + colors ─────────────────────────────────────────────────────
 
 const CHANNEL_ICON: Record<string, string> = {
   email:           'mail',
   call:            'call',
+  phone_call:      'call',
   sms:             'sms',
   whatsapp_text:   'chat',
   whatsapp_voice:  'voice_chat',
+  voice_note:      'voice_chat',
   linkedin:        'link',
   video:           'videocam',
   microsite:       'article',
@@ -85,13 +70,19 @@ const CHANNEL_ICON: Record<string, string> = {
   postcard:        'post_add',
 };
 
-const TONE_COLOR: Record<string, string> = {
-  reassuring:        'var(--color-primary-container)',
-  data_driven:       'var(--color-secondary)',
-  impact:            'var(--color-secondary)',
-  objection_handling:'var(--color-tertiary)',
-  urgency:           'var(--color-error)',
-  social_proof:      'var(--color-primary)',
+const CHANNEL_COLOR: Record<string, string> = {
+  email:          'var(--color-primary-container)',
+  call:           'var(--color-tertiary)',
+  phone_call:     'var(--color-tertiary)',
+  sms:            'var(--color-secondary)',
+  whatsapp_text:  '#25D366',
+  whatsapp_voice: '#25D366',
+  voice_note:     '#25D366',
+  linkedin:       '#0077B5',
+  video:          'var(--color-error)',
+  microsite:      'var(--color-secondary)',
+  in_person:      'var(--color-primary)',
+  postcard:       'var(--color-outline)',
 };
 
 // ── Archetype gradient (dynamic) ──────────────────────────────────────────────
@@ -106,84 +97,165 @@ function archetypeGradientStyle(weights: { family: number; investor: number; env
   };
 }
 
+function formatPrice(price: number) {
+  return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0 }).format(price);
+}
+
 // ── Touch card ────────────────────────────────────────────────────────────────
 
-function TouchCard({ touch, index, onAudioReady }: { touch: Touch; index: number; onAudioReady?: (touchId: string, audioUrl: string) => void }) {
+function TouchCard({ touch, index, onMediaReady, onSendNow }: { touch: Touch; index: number; onMediaReady?: (touchId: string, audioUrl: string, imageUrl: string) => void; onSendNow?: () => void }) {
   const [expanded, setExpanded] = useState(false);
-  const [audioUrl, setAudioUrl] = useState<string | null>(touch.audioUrl ?? null);
-  const [generatingAudio, setGeneratingAudio] = useState(false);
-  const toneColor = TONE_COLOR[touch.tone] ?? 'var(--color-primary-container)';
+  const [audioUrl, setAudioUrl] = useState<string | null>(touch.contentAudioUrl ?? null);
+  const [imageUrl, setImageUrl] = useState<string | null>(touch.contentImageUrl ?? null);
+  const [generating, setGenerating] = useState(false);
+  const [genError, setGenError] = useState<string | null>(null);
+  const accentColor = CHANNEL_COLOR[touch.channel] ?? 'var(--color-primary-container)';
   const icon = CHANNEL_ICON[touch.channel] ?? 'notifications';
+  const title = touch.contentSubject || touch.reasoning?.slice(0, 60) || `Touch ${index + 1}`;
+  const isVoice = touch.channel === 'whatsapp_voice' || touch.channel === 'voice_note';
 
+  async function generateVoiceCard() {
+    if (!touch.id || generating) return;
+    setGenerating(true);
+    setGenError(null);
+    try {
+      const r = await fetch(`/api/touch/${touch.id}/generate-voice-card`, { method: 'POST' });
+      const data = await r.json();
+      if (!r.ok || data.error) throw new Error(data.error ?? `HTTP ${r.status}`);
+      const au = data.data?.audio_url ?? null;
+      const iu = data.data?.image_url ?? null;
+      if (au) setAudioUrl(au);
+      if (iu) setImageUrl(iu);
+      if (au && iu) onMediaReady?.(touch.id!, au, iu);
+    } catch (e: unknown) {
+      setGenError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  // Auto-generate on mount for voice touches that have no real media yet.
+  // Treat placeholder images and missing audio as "not yet generated".
   useEffect(() => {
-    if (touch.channel !== 'whatsapp_voice' || audioUrl || generatingAudio || !touch.id) return;
-    setGeneratingAudio(true);
-    fetch(`/api/touch/${touch.id}/audio`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({}),
-    })
-      .then(r => r.json())
-      .then(data => {
-        if (data.audioUrl) {
-          setAudioUrl(data.audioUrl);
-          onAudioReady?.(touch.id!, data.audioUrl);
-        }
-      })
-      .catch(() => {})
-      .finally(() => setGeneratingAudio(false));
+    const isPlaceholder = !imageUrl || imageUrl.includes('/placeholders/');
+    if (isVoice && touch.id && (isPlaceholder || !audioUrl)) {
+      generateVoiceCard();
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [touch.id]);
 
   return (
     <div
-      className="bg-white rounded-xl p-4 relative overflow-hidden transition-all hover:shadow-md"
+      className="bg-white rounded-xl relative overflow-hidden transition-all hover:shadow-md"
       style={{ border: '1px solid #E8E8E3' }}
     >
-      {/* Tone bar */}
-      <div className="absolute top-0 left-0 right-0 h-[3px]" style={{ backgroundColor: toneColor }} />
+      {/* Channel accent bar */}
+      <div className="absolute top-0 left-0 right-0 h-[3px]" style={{ backgroundColor: accentColor }} />
 
-      <div
-        className="cursor-pointer active:scale-95"
-        onClick={() => setExpanded(e => !e)}
-      >
-        <div className="flex justify-between items-start mb-4">
-          <span className="font-label-caps text-outline" style={{ fontSize: 10 }}>DAY {String(touch.dayOffset).padStart(2, '0')}</span>
-          <span className="material-symbols-outlined" style={{ color: toneColor, fontSize: 18 }}>{icon}</span>
-        </div>
-
-        <h4 className="font-body-strong mb-1 text-on-surface" style={{ fontSize: 13 }}>
-          {touch.objective || `Touch ${index + 1}`}
-        </h4>
-        <p className="text-on-surface-variant leading-tight" style={{ fontSize: 11 }}>
-          {touch.tone.replace(/_/g, ' ')} · {touch.channel.replace(/_/g, ' ')}
-        </p>
-      </div>
-
-      {/* Audio player for voice touches */}
-      {touch.channel === 'whatsapp_voice' && (
-        <div className="mt-3">
-          {audioUrl ? (
-            <audio controls src={audioUrl} className="w-full" style={{ height: 32 }} />
-          ) : generatingAudio ? (
-            <p className="font-label-caps text-outline" style={{ fontSize: 9 }}>GENERATING AUDIO…</p>
-          ) : null}
+      {/* Voice card: image + audio at TOP */}
+      {isVoice && (
+        <div className="px-4 pt-5 pb-3">
+          {generating ? (
+            <div className="flex items-center gap-2 py-6 justify-center rounded-lg" style={{ backgroundColor: '#f8f8f6' }}>
+              <div className="w-4 h-4 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: accentColor }} />
+              <p className="font-label-caps text-outline" style={{ fontSize: 9 }}>GENERATING VOICE CARD…</p>
+            </div>
+          ) : genError ? (
+            <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--color-error-container)' }}>
+              <p className="text-on-error-container mb-1" style={{ fontSize: 11 }}>{genError}</p>
+              <button
+                onClick={e => { e.stopPropagation(); generateVoiceCard(); }}
+                className="font-label-caps underline"
+                style={{ fontSize: 9, color: 'var(--color-error)' }}
+              >
+                RETRY
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {imageUrl ? (
+                <img
+                  src={imageUrl}
+                  alt="Personalized solar proposal card"
+                  className="w-full rounded-lg"
+                  style={{ aspectRatio: '16/9', objectFit: 'cover' }}
+                />
+              ) : (
+                <div className="w-full rounded-lg flex items-center justify-center" style={{ aspectRatio: '16/9', backgroundColor: '#f0f4f2' }}>
+                  <span className="material-symbols-outlined text-outline" style={{ fontSize: 32 }}>image</span>
+                </div>
+              )}
+              {audioUrl ? (
+                <audio controls src={audioUrl} className="w-full" style={{ height: 36 }} />
+              ) : (
+                <div className="w-full rounded flex items-center justify-center py-2" style={{ backgroundColor: '#f0f4f2' }}>
+                  <span className="font-label-caps text-outline" style={{ fontSize: 9 }}>AUDIO PENDING</span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
+
+      {/* Card header (clickable to expand reasoning) */}
+      <div
+        className="cursor-pointer active:scale-95 px-4 pb-4"
+        style={{ paddingTop: isVoice ? 0 : '1.25rem' }}
+        onClick={() => setExpanded(e => !e)}
+      >
+        {!isVoice && (
+          <div className="flex justify-between items-start mb-4">
+            <span className="font-label-caps text-outline" style={{ fontSize: 10 }}>DAY {String(touch.dayOffset).padStart(2, '0')}</span>
+            <span className="material-symbols-outlined" style={{ color: accentColor, fontSize: 18 }}>{icon}</span>
+          </div>
+        )}
+        {isVoice && (
+          <div className="flex justify-between items-center mb-2">
+            <span className="font-label-caps text-outline" style={{ fontSize: 10 }}>DAY {String(touch.dayOffset).padStart(2, '0')}</span>
+            <span className="material-symbols-outlined" style={{ color: accentColor, fontSize: 16 }}>{icon}</span>
+          </div>
+        )}
+
+        <h4 className="font-body-strong mb-1 text-on-surface" style={{ fontSize: 13 }}>
+          {title}
+        </h4>
+        <p className="text-on-surface-variant leading-tight" style={{ fontSize: 11 }}>
+          {touch.channel.replace(/_/g, ' ')}
+          {touch.abVariant && <span className="ml-2 font-label-caps" style={{ fontSize: 9, color: 'var(--color-secondary)' }}>A/B</span>}
+        </p>
+      </div>
 
       {/* Expanded reasoning */}
       {expanded && (
         <div className="mt-4 pt-4" style={{ borderTop: '1px solid #E8E8E3' }}>
-          <p className="font-label-caps text-outline uppercase mb-2" style={{ fontSize: 9 }}>REASONING</p>
-          <p className="font-body-main text-on-surface-variant leading-relaxed" style={{ fontSize: 12 }}>
-            {touch.reasoning}
-          </p>
-          {touch.contentSubject && (
+          {touch.reasoning && (
+            <>
+              <p className="font-label-caps text-outline uppercase mb-2" style={{ fontSize: 9 }}>REASONING</p>
+              <p className="font-body-main text-on-surface-variant leading-relaxed" style={{ fontSize: 12 }}>
+                {touch.reasoning}
+              </p>
+            </>
+          )}
+          {touch.contentBody && (
             <div className="mt-3">
-              <p className="font-label-caps text-outline uppercase mb-1" style={{ fontSize: 9 }}>SUBJECT</p>
-              <p className="font-data-mono text-on-surface" style={{ fontSize: 11 }}>{touch.contentSubject}</p>
+              <p className="font-label-caps text-outline uppercase mb-1" style={{ fontSize: 9 }}>CONTENT</p>
+              <p className="font-data-mono text-on-surface" style={{ fontSize: 11 }}>{touch.contentBody.slice(0, 200)}{touch.contentBody.length > 200 ? '…' : ''}</p>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Contact now button */}
+      {onSendNow && (
+        <div className="mt-3 pt-3" style={{ borderTop: '1px solid #E8E8E3' }}>
+          <button
+            onClick={e => { e.stopPropagation(); onSendNow(); }}
+            className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg font-body-strong hover:opacity-90 active:scale-95 transition-all"
+            style={{ backgroundColor: 'rgba(20,69,55,0.08)', color: 'var(--color-primary)', fontSize: 12 }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: 14 }}>send</span>
+            Contact now
+          </button>
         </div>
       )}
     </div>
@@ -195,31 +267,27 @@ function TouchCard({ touch, index, onAudioReady }: { touch: Touch; index: number
 function SequencePlannerInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const customerId = searchParams.get('customerId') ?? 'cust_maria_mueller';
+  const customerId = searchParams.get('customerId') ?? '';
 
-  const [custDetail, setCustDetail] = useState<CustomerDetail | null>(null);
-  const [profile, setProfile]   = useState<ProfileDetail | null>(null);
-  const [quote, setQuote]       = useState<QuoteDetail | null>(null);
-  const [strategy, setStrategy] = useState<StrategyData | null>(null);
-  const [loading, setLoading]   = useState(true);
-  const [generating, setGenerating] = useState(false);
-  const [error, setError]       = useState<string | null>(null);
+  const [custDetail, setCustDetail]   = useState<CustomerDetail | null>(null);
+  const [strategy, setStrategy]       = useState<StrategyData | null>(null);
+  const [loading, setLoading]         = useState(true);
+  const [generating, setGenerating]   = useState(false);
+  const [error, setError]             = useState<string | null>(null);
+  const [coachingOpen, setCoachingOpen]     = useState(false);
+  const [sendModalTouch, setSendModalTouch] = useState<Touch | null>(null);
 
-  const generateStrategy = useCallback(async (custId: string, quoteId: string) => {
+  const generateStrategy = useCallback(async (custId: string) => {
     setGenerating(true);
     try {
       const res = await fetch('/api/strategy/generate', {
-        method: 'POST',
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          customerId: custId,
-          quoteId,
-          installerNotes: 'Customer is interested in solar. Please generate a persuasive outreach sequence based on their profile.',
-        }),
+        body:    JSON.stringify({ customerId: custId }),
       });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      setStrategy(data);
+      const json = await res.json();
+      if (json.error) throw new Error(json.error);
+      setStrategy(json.data);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -228,64 +296,86 @@ function SequencePlannerInner() {
   }, []);
 
   useEffect(() => {
+    if (!customerId) { setLoading(false); return; }
     setLoading(true);
     setError(null);
     fetch(`/api/customers/${customerId}`)
       .then(r => r.json())
-      .then(async (data) => {
-        if (data.error) throw new Error(data.error);
-        setCustDetail(data.customer);
-        setProfile(data.profile ? {
-          ...data.profile,
-          statedMotivations:       parseJsonArr(data.profile.statedMotivations),
-          statedObjections:        parseJsonArr(data.profile.statedObjections),
-          customerVerbatimPhrases: parseJsonArr(data.profile.customerVerbatimPhrases),
-        } : null);
-        setQuote(data.quote);
+      .then(async (json) => {
+        if (json.error) throw new Error(json.error as string);
+        const d = json.data;
 
-        if (data.strategy && data.strategy.touches?.length > 0) {
-          // Reuse existing strategy
+        setCustDetail({
+          id:                        d.id,
+          fname:                     d.fname,
+          lname:                     d.lname,
+          email:                     d.email ?? null,
+          phone:                     d.phone ?? null,
+          whatsappEnabled:           d.whatsappEnabled ?? false,
+          consentMarketing:          d.consentMarketing ?? false,
+          priceQuote:                d.priceQuote ?? null,
+          archetypeFamily:           d.archetypeFamily ?? 0,
+          archetypeInvestor:         d.archetypeInvestor ?? 0,
+          archetypeEnvironmentalist: d.archetypeEnvironmentalist ?? 0,
+          archetypeSkeptic:          d.archetypeSkeptic ?? 0,
+          about:                     d.about ?? null,
+          language:                  d.language ?? 'en',
+        });
+
+        const seq = d.latestSequence;
+        if (seq && (seq.touchpoints ?? []).length > 0) {
           setStrategy({
-            id: data.strategy.id,
-            strategyId: data.strategy.id,
-            ghostRiskScore: data.strategy.ghostRiskScore,
-            closeReadinessScore: data.strategy.closeReadinessScore,
-            rationaleSummary: data.strategy.rationaleSummary,
-            touches: data.strategy.touches,
+            id:                  seq.id,
+            ghostRiskScore:      seq.ghostRiskScore,
+            closeReadinessScore: seq.closeReadinessScore,
+            rationale:           seq.rationale,
+            touches:             seq.touchpoints,
           });
           setLoading(false);
-        } else if (data.quote?.id) {
-          setLoading(false);
-          // No strategy yet — generate one
-          await generateStrategy(customerId, data.quote.id);
         } else {
           setLoading(false);
+          await generateStrategy(d.id);
         }
       })
       .catch(e => {
-        setError(e.message);
+        setError((e as Error).message);
         setLoading(false);
       });
   }, [customerId, generateStrategy]);
 
-  const name = custDetail ? `${custDetail.firstName} ${custDetail.lastName}` : '…';
-  const price = quote ? new Intl.NumberFormat('de-DE', { style: 'currency', currency: quote.currency, minimumFractionDigits: 0 }).format(quote.totalPrice) : '…';
-  const city = custDetail ? `${custDetail.city}, ${custDetail.countryCode}` : '…';
-  const irradiance = custDetail?.irradiance ? `${Math.round(custDetail.irradiance)} kWh/m²/yr` : '—';
+  const name  = custDetail ? `${custDetail.fname} ${custDetail.lname}` : '…';
+  const price = custDetail?.priceQuote ? formatPrice(custDetail.priceQuote) : '—';
 
   const archetypeWeights = {
-    family:          profile?.archetypeFamily ?? 0.65,
-    investor:        profile?.archetypeInvestor ?? 0,
-    environmentalist: profile?.archetypeEnvironmentalist ?? 0,
-    skeptic:         profile?.archetypeSkeptic ?? 0.35,
+    family:           custDetail?.archetypeFamily ?? 0,
+    investor:         custDetail?.archetypeInvestor ?? 0,
+    environmentalist: custDetail?.archetypeEnvironmentalist ?? 0,
+    skeptic:          custDetail?.archetypeSkeptic ?? 0,
   };
 
-  const pioneerPct = Math.round(((archetypeWeights.family + archetypeWeights.investor + archetypeWeights.environmentalist) /
-    (archetypeWeights.family + archetypeWeights.investor + archetypeWeights.environmentalist + archetypeWeights.skeptic || 1)) * 100);
+  const pioneerPct = Math.round(
+    ((archetypeWeights.family + archetypeWeights.investor + archetypeWeights.environmentalist) /
+    (archetypeWeights.family + archetypeWeights.investor + archetypeWeights.environmentalist + archetypeWeights.skeptic || 1)) * 100,
+  );
 
-  const ghostScore  = strategy?.ghostRisk?.score ?? (strategy?.ghostRiskScore ?? 0);
-  const readyScore  = strategy?.closeReadiness?.score ?? (strategy?.closeReadinessScore ?? 0);
-  const strategyId  = strategy?.id ?? strategy?.strategyId;
+  function handleMediaReady(touchId: string, audioUrl: string, imageUrl: string) {
+    setStrategy(prev => prev ? {
+      ...prev,
+      touches: prev.touches.map(t =>
+        t.id === touchId ? { ...t, contentAudioUrl: audioUrl, contentImageUrl: imageUrl } : t,
+      ),
+    } : prev);
+  }
+
+  const ghostScore = strategy?.ghostRiskScore ?? 0;
+  const readyScore = strategy?.closeReadinessScore ?? 0;
+  const strategyId = strategy?.id;
+
+  const activeArchetypes: { label: string; bg: string; text: string }[] = [];
+  if (archetypeWeights.family > 0.15)           activeArchetypes.push({ label: 'Family',    bg: 'rgba(20,69,55,0.1)',   text: 'var(--color-primary)' });
+  if (archetypeWeights.investor > 0.15)         activeArchetypes.push({ label: 'Investor',  bg: 'rgba(34,106,80,0.1)', text: 'var(--color-secondary)' });
+  if (archetypeWeights.environmentalist > 0.15) activeArchetypes.push({ label: 'Eco',       bg: 'rgba(34,106,80,0.1)', text: 'var(--color-secondary)' });
+  if (archetypeWeights.skeptic > 0.15)          activeArchetypes.push({ label: 'Skeptic',   bg: 'rgba(94,49,43,0.1)',  text: 'var(--color-tertiary)' });
 
   return (
     <div className="flex min-h-screen" style={{ backgroundColor: 'var(--color-background)' }}>
@@ -307,22 +397,25 @@ function SequencePlannerInner() {
           </div>
           <div className="flex items-center gap-6">
             <button
-              onClick={() => strategyId && router.push(`/replay?strategyId=${strategyId}`)}
+              onClick={() => customerId && router.push(`/replay?customerId=${customerId}`)}
               className="text-on-surface-variant active:scale-95 hover:opacity-80 transition-opacity"
-              title="Replay simulation"
-              disabled={!strategyId}
+              title="Replay timeline"
+              disabled={!customerId}
             >
               <span className="material-symbols-outlined">replay</span>
             </button>
+            {customerId && (
+              <button
+                onClick={() => setCoachingOpen(true)}
+                className="px-3 py-1.5 font-body-strong rounded-sm hover:opacity-90 active:scale-95 transition-all flex items-center gap-1.5"
+                style={{ border: '1px solid #0d9488', color: '#0d9488', fontSize: 13 }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: 13 }}>psychology</span>
+                Coach me on this call
+              </button>
+            )}
             <button
-              onClick={() => router.push('/adjust')}
-              className="px-4 py-2 font-body-strong rounded-sm hover:opacity-90 active:scale-95 transition-all"
-              style={{ border: '1px solid #E8E8E3', color: 'var(--color-primary)' }}
-            >
-              Adjust Sequence
-            </button>
-            <button
-              onClick={() => strategyId && router.push(`/brief?strategyId=${strategyId}`)}
+              onClick={() => strategyId && router.push(`/brief?sequenceId=${strategyId}`)}
               className="px-4 py-2 font-body-strong rounded-sm hover:opacity-90 active:scale-95 transition-all"
               style={{ backgroundColor: 'var(--color-primary)', color: 'white' }}
               disabled={!strategyId}
@@ -348,20 +441,15 @@ function SequencePlannerInner() {
                   <h2 className="text-3xl font-display-md italic text-on-surface mb-2">{name}</h2>
                   <div className="flex items-center gap-4">
                     <span className="text-2xl font-medium text-on-surface">{price}</span>
-                    <div
-                      className="px-3 py-1 rounded-full font-label-caps flex items-center gap-1"
-                      style={{ backgroundColor: 'rgba(20,69,55,0.05)', color: 'var(--color-primary)', fontSize: 9 }}
-                    >
-                      <span className="material-symbols-outlined" style={{ fontSize: 12 }}>location_on</span>
-                      {city}
-                    </div>
-                    <div
-                      className="px-3 py-1 rounded-full font-label-caps flex items-center gap-1"
-                      style={{ backgroundColor: 'rgba(34,106,80,0.08)', color: 'var(--color-secondary)', fontSize: 9 }}
-                    >
-                      <span className="material-symbols-outlined" style={{ fontSize: 12 }}>wb_sunny</span>
-                      {irradiance}
-                    </div>
+                    {activeArchetypes.map(a => (
+                      <span
+                        key={a.label}
+                        className="px-2 py-1 rounded font-label-caps"
+                        style={{ fontSize: 9, backgroundColor: a.bg, color: a.text }}
+                      >
+                        {a.label}
+                      </span>
+                    ))}
                   </div>
                 </div>
                 {/* Archetype blend bar */}
@@ -426,12 +514,22 @@ function SequencePlannerInner() {
               ) : strategy?.touches?.length ? (
                 <div className="grid grid-cols-4 gap-4">
                   {strategy.touches.map((touch, i) => (
-                    <TouchCard key={touch.id ?? i} touch={touch} index={i} />
+                    <TouchCard
+                      key={touch.id ?? i}
+                      touch={touch}
+                      index={i}
+                      onMediaReady={handleMediaReady}
+                      onSendNow={custDetail ? () => setSendModalTouch(touch) : undefined}
+                    />
                   ))}
+                </div>
+              ) : !customerId ? (
+                <div className="p-8 rounded-xl text-center" style={{ border: '1px dashed var(--color-outline-variant)' }}>
+                  <p className="font-body-main text-on-surface-variant">Select a customer from Pipeline to view their sequence.</p>
                 </div>
               ) : (
                 <div className="p-8 rounded-xl text-center" style={{ border: '1px dashed var(--color-outline-variant)' }}>
-                  <p className="font-body-main text-on-surface-variant">No strategy yet. Click a customer in Pipeline to generate one.</p>
+                  <p className="font-body-main text-on-surface-variant">No strategy yet. Use "Generate strategy" from Pipeline first.</p>
                 </div>
               )}
             </section>
@@ -444,9 +542,9 @@ function SequencePlannerInner() {
               <h5 className="font-label-caps uppercase tracking-wider text-on-surface" style={{ fontSize: 10 }}>Sequence Reasoning</h5>
             </div>
 
-            {strategy?.rationaleSummary ? (
+            {strategy?.rationale ? (
               <div className="text-on-surface-variant leading-relaxed space-y-4" style={{ fontSize: 13 }}>
-                <p>{strategy.rationaleSummary}</p>
+                <p>{strategy.rationale}</p>
               </div>
             ) : generating ? (
               <p className="font-body-main text-on-surface-variant italic" style={{ fontSize: 13 }}>Generating rationale…</p>
@@ -454,44 +552,49 @@ function SequencePlannerInner() {
               <p className="font-body-main text-on-surface-variant italic" style={{ fontSize: 13 }}>Generate a strategy to see reasoning here.</p>
             )}
 
-            {/* Archetype matching */}
-            {profile && (
+            {/* Archetype blend chips */}
+            {activeArchetypes.length > 0 && (
               <div className="pt-6" style={{ borderTop: '1px solid #E8E8E3' }}>
                 <p className="font-label-caps text-outline mb-3 uppercase" style={{ fontSize: 9 }}>ARCHETYPE MATCHING</p>
                 <div className="flex flex-wrap gap-2">
-                  {profile.archetypeFamily > 0.15 && (
-                    <span className="px-2 py-1 rounded text-[11px] font-medium" style={{ backgroundColor: 'rgba(20,69,55,0.1)', color: 'var(--color-primary)' }}>Family</span>
-                  )}
-                  {profile.archetypeInvestor > 0.15 && (
-                    <span className="px-2 py-1 rounded text-[11px] font-medium" style={{ backgroundColor: 'rgba(34,106,80,0.1)', color: 'var(--color-secondary)' }}>Investor</span>
-                  )}
-                  {profile.archetypeEnvironmentalist > 0.15 && (
-                    <span className="px-2 py-1 rounded text-[11px] font-medium" style={{ backgroundColor: 'rgba(34,106,80,0.1)', color: 'var(--color-secondary)' }}>Eco-focused</span>
-                  )}
-                  {profile.archetypeSkeptic > 0.15 && (
-                    <span className="px-2 py-1 rounded text-[11px] font-medium" style={{ backgroundColor: 'rgba(94,49,43,0.1)', color: 'var(--color-tertiary)' }}>Skeptic</span>
-                  )}
+                  {activeArchetypes.map(a => (
+                    <span
+                      key={a.label}
+                      className="px-2 py-1 rounded text-[11px] font-medium"
+                      style={{ backgroundColor: a.bg, color: a.text }}
+                    >
+                      {a.label}
+                    </span>
+                  ))}
                 </div>
               </div>
             )}
 
-            {/* Stated objections */}
-            {profile?.statedObjections && (profile.statedObjections as string[]).length > 0 && (
+            {/* About / notes */}
+            {custDetail?.about && (
               <div className="pt-6" style={{ borderTop: '1px solid #E8E8E3' }}>
-                <p className="font-label-caps text-outline mb-3 uppercase" style={{ fontSize: 9 }}>STATED OBJECTIONS</p>
-                <ul className="space-y-2">
-                  {(profile.statedObjections as string[]).map((obj, i) => (
-                    <li key={i} className="flex gap-2 items-start" style={{ fontSize: 12 }}>
-                      <span className="material-symbols-outlined text-error" style={{ fontSize: 14, marginTop: 1 }}>warning</span>
-                      <span className="text-on-surface-variant">{obj}</span>
-                    </li>
-                  ))}
-                </ul>
+                <p className="font-label-caps text-outline mb-3 uppercase" style={{ fontSize: 9 }}>INSTALLER NOTES</p>
+                <p className="font-body-main text-on-surface-variant leading-relaxed" style={{ fontSize: 12 }}>
+                  {custDetail.about}
+                </p>
               </div>
             )}
           </aside>
         </div>
       </main>
+
+      <CoachingPanel
+        open={coachingOpen}
+        onClose={() => setCoachingOpen(false)}
+        preselectedCustomerId={customerId || undefined}
+      />
+
+      <SendNowModal
+        open={!!sendModalTouch}
+        onClose={() => setSendModalTouch(null)}
+        touch={sendModalTouch}
+        customer={custDetail as SendNowCustomer | null}
+      />
     </div>
   );
 }

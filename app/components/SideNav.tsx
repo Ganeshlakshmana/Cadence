@@ -1,16 +1,38 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
 
 const NAV_ITEMS = [
-  { href: '/pipeline', label: 'Pipeline',   icon: 'lan',          key: 'pipeline'  },
+  { href: '/pipeline',  label: 'Pipeline',  icon: 'lan',          key: 'pipeline'  },
   { href: '/sequences', label: 'Sequences', icon: 'account_tree', key: 'sequences' },
 ];
 
+const USER = { name: 'Ganesh Lakshmana', role: 'Sales Manager', initials: 'GL' };
+const STORAGE_KEY = 'cadence_user_photo';
+
 export default function SideNav() {
-  const pathname = usePathname();
-  const router = useRouter();
+  const pathname   = usePathname();
+  const fileRef    = useRef<HTMLInputElement>(null);
+  const [photo, setPhoto] = useState<string | null>(null);
+
+  useEffect(() => {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) setPhoto(stored);
+  }, []);
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const data = ev.target?.result as string;
+      setPhoto(data);
+      localStorage.setItem(STORAGE_KEY, data);
+    };
+    reader.readAsDataURL(file);
+  }
 
   const isActive = (href: string) => pathname.startsWith(href);
 
@@ -51,23 +73,40 @@ export default function SideNav() {
         })}
       </div>
 
-      {/* New Project CTA */}
-      <button
-        onClick={() => router.push('/intake')}
-        className="mx-6 mb-8 py-3 px-6 flex items-center justify-center gap-2 font-body-strong transition-all active:scale-95 hover:opacity-90"
-        style={{
-          backgroundColor: 'var(--color-primary-container)',
-          color: 'var(--color-on-primary)',
-          border: '1px solid var(--color-primary-container)',
-        }}
-      >
-        <span className="material-symbols-outlined" style={{ fontSize: 18 }}>add</span>
-        <span>New Project</span>
-      </button>
+      {/* User profile */}
+      <div className="mx-4 mb-4 rounded-xl p-3" style={{ backgroundColor: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline-variant)' }}>
+        <div className="flex items-center gap-3">
+          {/* Avatar */}
+          <button
+            onClick={() => fileRef.current?.click()}
+            className="relative flex-shrink-0 group"
+            title="Click to change photo"
+          >
+            {photo ? (
+              <img src={photo} alt="Profile" className="w-10 h-10 rounded-full object-cover" style={{ border: '2px solid var(--color-primary)' }} />
+            ) : (
+              <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm"
+                style={{ backgroundColor: 'var(--color-primary)', color: 'white', letterSpacing: '0.02em' }}>
+                {USER.initials}
+              </div>
+            )}
+            <div className="absolute inset-0 rounded-full bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+              <span className="material-symbols-outlined text-white" style={{ fontSize: 14 }}>photo_camera</span>
+            </div>
+          </button>
+          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+
+          {/* Info */}
+          <div className="min-w-0">
+            <p className="font-body-strong text-on-surface truncate" style={{ fontSize: 12 }}>{USER.name}</p>
+            <p className="font-data-mono text-outline truncate" style={{ fontSize: 10 }}>{USER.role}</p>
+          </div>
+        </div>
+      </div>
 
       {/* Footer */}
       <div
-        className="px-6 pt-6 flex items-center gap-2"
+        className="px-6 pt-4 flex items-center gap-2"
         style={{ borderTop: '1px solid var(--color-outline-variant)' }}
       >
         <span className="material-symbols-outlined text-outline" style={{ fontSize: 14 }}>copyright</span>
